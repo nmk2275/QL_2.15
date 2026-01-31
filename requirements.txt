@@ -24,3 +24,9 @@ gunicorn>=21.2.0,<22.0.0
 
 # Environment variable management
 python-dotenv>=1.0.0,<2.0.0
+
+# Required for qiskit-ibm-runtime (provides pkg_resources)
+setuptools>=65.0.0
+
+# Required for qiskit-ibm-runtime
+setuptools>=65.0.0

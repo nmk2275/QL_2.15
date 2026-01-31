@@ -77,9 +77,8 @@ def get_backend_service(backend_type="local", api_token=None):
     
     Args:
         backend_type (str): Either "local" or "ibm"
-        api_token (str, optional): IBM API token. If provided, this will be used.
-                                  If None and backend_type is "ibm", falls back to
-                                  environment/file sources for backward compatibility.
+        api_token (str, optional): IBM API token. Must be provided by user via UI.
+                                  If None and backend_type is "ibm", falls back to local backend.
         
     Returns:
         Backend service for quantum experiments
@@ -87,20 +86,17 @@ def get_backend_service(backend_type="local", api_token=None):
     if backend_type == "ibm":
         # Use IBM Quantum backend
         try:
-            # Use provided token first, then fall back to old methods for backward compatibility
-            token = api_token
-            if not token:
-                token = _get_ibm_token()
-            
-            if not token:
-                print("IBM token not found, falling back to local backend")
+            # Only use the token provided by the user (from session/UI)
+            # Do not fall back to environment variables or files
+            if not api_token:
+                print("IBM token not provided by user, falling back to local backend")
                 return get_local_backend()
             
-            print(f"Using IBM token: {token[:10]}...")
+            print(f"Using IBM token: {api_token[:10]}...")
             
             # Try ibm_quantum_platform channel first (public IBM Quantum Experience)
             try:
-                service = QiskitRuntimeService(channel="ibm_quantum_platform", token=token)
+                service = QiskitRuntimeService(channel="ibm_quantum_platform", token=api_token)
                 backend = service.least_busy(operational=True, simulator=False)
                 print(f"Using IBM Quantum backend: {backend.name}")
                 return backend
@@ -109,7 +105,7 @@ def get_backend_service(backend_type="local", api_token=None):
                 
                 # Try ibm_cloud channel as fallback
                 try:
-                    service = QiskitRuntimeService(channel="ibm_cloud", token=token)
+                    service = QiskitRuntimeService(channel="ibm_cloud", token=api_token)
                     backend = service.least_busy(operational=True, simulator=False)
                     print(f"Using IBM Cloud backend: {backend.name}")
                     return backend

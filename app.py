@@ -1,11 +1,18 @@
+import os
 import time
 from flask import Flask, jsonify, render_template, request, session
 from qkd_backend.qkd_runner import exp1, exp2, exp3, exp4
 from qkd_backend.backend_config import get_backend_service, validate_ibm_token
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__, static_folder="static")
-app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0  # disable caching for static files in dev
-app.secret_key = 'your-secret-key-change-in-production'  # Required for session management
+# Configure caching based on environment
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 3600 if os.getenv('FLASK_ENV') == 'production' else 0
+# Use environment variable for secret key, fallback for development only
+app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-change-in-production')
 last_exp1_result = {}
 last_exp2_result = {}
 last_exp3_result = {}
@@ -190,4 +197,6 @@ def token_status():
     return jsonify({"has_token": False, "valid": False})
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5501, debug=True)
+    port = int(os.getenv('PORT', 5505))
+    debug = os.getenv('FLASK_ENV') != 'production'
+    app.run(host="0.0.0.0", port=port, debug=debug)

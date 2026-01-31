@@ -2,7 +2,13 @@
 import random
 import numpy as np
 from qiskit import QuantumCircuit
-from qiskit_aer import AerSimulator
+try:
+    from qiskit_aer import AerSimulator
+    HAS_AER = True
+except ImportError:
+    HAS_AER = False
+    # Fallback to FakeBrisbane
+    from qiskit_ibm_runtime.fake_provider import FakeBrisbane
 
 def text_to_bits(text):
     return [int(b) for c in text for b in bin(ord(c))[2:].zfill(8)]
@@ -32,7 +38,11 @@ def run_circuit_simulator(message, shots=1024):
     except Exception:
         qasm_str = ""
 
-    sim = AerSimulator()
+    if HAS_AER:
+        sim = AerSimulator()
+    else:
+        # Fallback to FakeBrisbane if AerSimulator is not available
+        sim = FakeBrisbane()
     job = sim.run(qc, shots=shots)
     result = job.result()
     counts = result.get_counts()

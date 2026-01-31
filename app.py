@@ -197,6 +197,6 @@ def token_status():
     return jsonify({"has_token": False, "valid": False})
 
 if __name__ == "__main__":
-    port = int(os.getenv('PORT', 5505))
+    port = int(os.getenv('PORT', 5504))
     debug = os.getenv('FLASK_ENV') != 'production'
     app.run(host="0.0.0.0", port=port, debug=debug)

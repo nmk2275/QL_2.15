@@ -4,8 +4,13 @@
 import numpy as np
 from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
 from qiskit_ibm_runtime import QiskitRuntimeService, SamplerV2 as Sampler
-from qiskit_aer import AerSimulator
-from qiskit_aer.noise import NoiseModel
+try:
+    from qiskit_aer import AerSimulator
+    from qiskit_aer.noise import NoiseModel
+    HAS_AER = True
+except ImportError:
+    HAS_AER = False
+    NoiseModel = None
 from qiskit.primitives import BackendSamplerV2
 import sys
 import os
@@ -75,9 +80,15 @@ def run_exp3(message=None, bit_num=20, shots=1024, rng_seed=None, backend_type="
     # Backend & Sampler selection
     if backend_type == "local":
         # Fast local path: AerSimulator without heavy transpilation
-        aer_backend = AerSimulator()
-        qc_isa = qc
-        sampler = BackendSamplerV2(backend=aer_backend)
+        if HAS_AER:
+            aer_backend = AerSimulator()
+            qc_isa = qc
+            sampler = BackendSamplerV2(backend=aer_backend)
+        else:
+            # Fallback to FakeBrisbane if AerSimulator is not available
+            backend = get_backend_service("local")
+            qc_isa = qc
+            sampler = BackendSamplerV2(backend=backend)
     else:
         # IBM runtime backend
         backend = get_backend_service("ibm", api_token=api_token)

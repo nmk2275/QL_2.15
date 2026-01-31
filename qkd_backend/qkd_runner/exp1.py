@@ -17,7 +17,11 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import hashlib
 import os
-from qiskit_aer import AerSimulator
+try:
+    from qiskit_aer import AerSimulator
+    HAS_AER = True
+except ImportError:
+    HAS_AER = False
 from qiskit.primitives import BackendSamplerV2
 from qkd_backend.backend_config import get_backend_service
 
@@ -61,9 +65,15 @@ def run_exp1(message=None, backend_type="local", error_mitigation=False, bit_num
 
     # Backend & sampler selection
     if backend_type == "local":
-        aer_backend = AerSimulator()
-        qc_isa = qc
-        sampler = BackendSamplerV2(backend=aer_backend)
+        if HAS_AER:
+            aer_backend = AerSimulator()
+            qc_isa = qc
+            sampler = BackendSamplerV2(backend=aer_backend)
+        else:
+            # Fallback to FakeBrisbane if AerSimulator is not available
+            backend = get_backend_service("local")
+            qc_isa = qc
+            sampler = BackendSamplerV2(backend=backend)
     else:
         backend = get_backend_service("ibm", api_token=api_token)
         target = backend.target

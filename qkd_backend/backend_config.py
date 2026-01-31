@@ -3,7 +3,11 @@ import os
 import json
 from qiskit_ibm_runtime import QiskitRuntimeService
 from qiskit_ibm_runtime.fake_provider import FakeBrisbane
-from qiskit_aer import AerSimulator
+try:
+    from qiskit_aer import AerSimulator
+    HAS_AER = True
+except ImportError:
+    HAS_AER = False
 
 def _get_ibm_token():
     """Get IBM token from multiple sources"""
@@ -129,6 +133,10 @@ def get_local_backend():
 
 def get_aer_simulator():
     """Get Aer simulator backend"""
-    backend = AerSimulator()
-    print("Using Aer simulator backend")
+    if HAS_AER:
+        backend = AerSimulator()
+        print("Using Aer simulator backend")
+    else:
+        backend = FakeBrisbane()
+        print("AerSimulator not available, using FakeBrisbane backend")
     return backend

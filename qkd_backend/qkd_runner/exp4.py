@@ -1,6 +1,10 @@
 import random
 from qiskit import QuantumCircuit
-from qiskit_aer import AerSimulator
+try:
+    from qiskit_aer import AerSimulator
+    HAS_AER = True
+except ImportError:
+    HAS_AER = False
 from qiskit.primitives import BackendSamplerV2
 from qiskit_ibm_runtime import SamplerV2 as Sampler
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
@@ -75,7 +79,12 @@ def run_exp4(message=None, n=20, shots=1024, backend_type="local", api_token=Non
     # Backend & sampler selection
     if backend_type == "local":
         qc_isa = qc
-        sampler = BackendSamplerV2(backend=AerSimulator())
+        if HAS_AER:
+            sampler = BackendSamplerV2(backend=AerSimulator())
+        else:
+            # Fallback to FakeBrisbane if AerSimulator is not available
+            backend = get_backend_service("local")
+            sampler = BackendSamplerV2(backend=backend)
     else:
         backend = get_backend_service("ibm", api_token=api_token)
         target = backend.target

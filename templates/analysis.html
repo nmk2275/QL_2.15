@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>QKD circuit</title>
+  <style>
+    :root{
+      --bg1: rgb(14,17,23);
+      --bg2: #0b0e13;
+      --card-bg: rgba(255,255,255,0.02);
+      --glass: rgba(255,255,255,0.03);
+      --accent1: rgb(255 75 75 / 1);
+      --accent2: #7f1d1d;
+      --text: rgb(250,250,250);
+      --muted: #94a3b8;
+    }
+    body { background: var(--bg1); color: var(--text); font-family: Inter, Arial, sans-serif; margin: 0; }
+    .container { max-width: 900px; margin: 40px auto; background: linear-gradient(180deg,var(--bg2), rgba(0,0,0,0.36)); border-radius: 18px; padding: 32px; box-shadow: 0 8px 32px rgba(0,0,0,0.6);} 
+    h1, h2 { color: var(--accent1); }
+    .section { margin-bottom: 32px; }
+    .diagram-img { max-width: 100%; max-height: 600px; background: #0b0e13; border-radius: 8px; display: block; margin: 0 auto; }
+    #histogramChart { margin-top: 18px; }
+    .qber-box { background: rgba(255,255,255,0.02); padding: 18px; border-radius: 8px; font-size: 1.2em; }
+    .btn { padding: 8px 16px; border-radius: 8px; background: linear-gradient(90deg,var(--accent1),var(--accent2)); color: var(--text); border: none; cursor: pointer; font-weight: 700; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+</head>
+<body>
+  <div class="container">
+    <h1>QKD Experiment circuit</h1>
+    <div class="section">
+      <h2>Circuit Diagram</h2>
+      <a id="diagramLink" href="#" target="_blank"><img id="diagramImg" class="diagram-img" src="#" alt="Circuit Diagram"></a>
+    </div>
+    <div class="section">
+      <h2>Measurement Histogram</h2>
+      <div id="histogramChart"></div>
+    </div>
+    <div class="section">
+      <h2>QBER</h2>
+      <div id="qberBox" class="qber-box"></div>
+    </div>
+    <button class="btn" onclick="window.location.href='/'">← Back to Simulator</button>
+  </div>
+  <script>
+    // Fetch the latest experiment data from the backend
+    fetch('/get_last_circuit')
+      .then(res => res.json())
+      .then(data => {
+        // Circuit diagram
+        if (data.circuit_diagram_url) {
+          document.getElementById('diagramImg').src = data.circuit_diagram_url;
+          document.getElementById('diagramLink').href = data.circuit_diagram_url;
+        } else {
+          document.getElementById('diagramImg').style.display = 'none';
+        }
+        // Histogram
+        if (data.counts && Object.keys(data.counts).length > 0) {
+          const labels = Object.keys(data.counts);
+          const values = Object.values(data.counts);
+          new ApexCharts(document.getElementById('histogramChart'), {
+            chart: { type: 'bar', height: 320, background: 'transparent' },
+            series: [{ name: 'Counts', data: values }],
+            xaxis: { categories: labels, labels: { style: { colors: '#e9f7ff' } } },
+            yaxis: { labels: { style: { colors: '#e9f7ff' } } },
+            colors: ['#10b981'],
+            grid: { borderColor: '#183c23' }
+          }).render();
+        } else {
+          document.getElementById('histogramChart').innerHTML = "<div style='color:#bfe8ff'>No measurement data.</div>";
+        }
+        // QBER
+        let qber = data.qber !== undefined ? data.qber : (data.loss !== undefined ? (data.loss * 100) : "N/A");
+        document.getElementById('qberBox').innerHTML = `QBER = ${typeof qber === "number" ? qber.toFixed(2) : qber}%`;
+      });
+  </script>
+</body>
+</html>

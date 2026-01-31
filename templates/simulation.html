@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Quantum Simulation Portal</title>
+    <style>
+        :root{--bg: rgb(14,17,23); --text: rgb(250,250,250); --accent: rgb(255 75 75 / 1)}
+        body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: var(--bg); color: var(--text); }
+        h1 { color: var(--accent); }
+        .btn { background-color: var(--accent); color: var(--text); border: none; padding: 15px 30px; font-size: 18px; cursor: pointer; border-radius: 8px; transition: background-color 0.3s; margin-top: 30px; }
+        .btn:hover { opacity: 0.95; }
+        p { color: #333; font-size: 16px; margin-top: 20px; }
+        #loading { color: var(--accent); font-weight: bold; }
+        .topbar { background: transparent; }
+    </style>
+</head>
+<body>
+
+    <div class="topbar">
+        <div class="right"><div class="small"></div></div>
+    </div>
+
+    <h1>Quantum Key Distribution Simulation</h1>
+    <p>Click the button below to run the BB84 QKD simulation.</p>
+
+    <button class="btn" id="runSim">Run Simulation</button>
+    <div id="loading">Loading simulation...</div>
+
+    <script>
+        document.getElementById("runSim").addEventListener("click", function() {
+            // Show loading message
+            const loadingDiv = document.getElementById("loading");
+            loadingDiv.style.display = "block";
+
+            // Wait a short moment before opening new tab
+            setTimeout(() => {
+                window.open("https://alice-to-bob-nmijspqmykhlmg9bp8vhpd.streamlit.app/", "_blank");
+                // Optionally hide loading after opening (not really needed since new tab opens)
+                loadingDiv.style.display = "none";
+            }, 500); // 0.5 second delay for effect
+        });
+    </script>
+
+</body>
+</html>

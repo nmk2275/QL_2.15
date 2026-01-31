@@ -1,0 +1,14 @@
+Quantum Key Distribution (BB84) Simulator
+Copyright (c) 2025 Kalivarapu Namratha
+
+This software includes an implementation of the BB84 Quantum Key Distribution
+protocol, associated simulation tools, QBER calculation logic, and the user
+interface components developed by the author.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+
+Original project repository:
+https://github.com/nmk2275/QL_2.14
+
+Attributions must be preserved in all copies, redistributions, or derivative works.

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Quantum vs Classical Simulator</title>
+<style>
+:root{ --bg1: rgb(14,17,23); --bg2: #0b0e13; --accent1: rgb(255 75 75 / 1); --accent2: #7f1d1d; --text: rgb(250,250,250); }
+body { font-family:'Segoe UI', sans-serif; background: linear-gradient(180deg,var(--bg1),var(--bg2)); color:var(--text); margin:0; padding:20px; }
+h1{ text-align:center; color: var(--accent1); }
+.dashboard{display:grid; grid-template-columns:1fr; gap:20px; max-width:900px;margin:auto;}
+.card{background: rgba(255,255,255,0.02); border-radius:15px; padding:20px; box-shadow:0px 4px 10px rgba(0,0,0,0.6);}
+.card h2{color:var(--text);}
+input, button{padding:8px 12px; border:none;border-radius:8px;margin:5px 0;font-size:14px;}
+input{width:100%;}
+button{background:var(--accent1); color:var(--text);}
+.results{display:flex; justify-content:space-between; margin-top:15px;}
+.result-card{flex:1; text-align:center; background: rgba(255,255,255,0.15); border-radius:10px; margin:0 5px; padding:15px;}
+.result-card.quantum{border:2px solid rgba(255,75,75,0.12);} 
+.result-card.classical{border:2px solid rgba(255,75,75,0.06);} 
+.difference{margin-top:15px; text-align:center; background: rgba(255,255,255,0.2); border-radius:10px; padding:10px; font-size:18px; color:#ffd700;}
+.log{background: rgba(0,0,0,0.3); padding:10px; height:200px; overflow-y:auto; border-radius:10px; font-size:14px; margin-top:15px; color:var(--muted);} 
+.mode-select {
+  margin-bottom:10px;
+  font-size: 18px;
+  padding: 10px 15px;
+  width: 100%;
+  max-width: 400px;
+}
+</style>
+</head>
+<body>
+<h1>🔐 Quantum vs Classical Simulator</h1>
+<div class="dashboard">
+
+<div class="card">
+<h2>Mode Selection</h2>
+<select id="mode" class="mode-select" onchange="updateVisibility()">
+  <option value="bb84">Run Only BB84</option>
+  <option value="classical">Run Only Classical (RSA)</option>
+  <option value="both">Run Both</option>
+</select>
+<button onclick="runSimulation()">Run Simulation</button>
+</div>
+
+<div class="card" id="bb84Card">
+<h2>⚡ BB84 Quantum Key Distribution</h2>
+<p>Alice & Bob generate <strong>random key bits</strong> over a quantum channel:</p>
+<p><strong>Shared Key Bits:</strong> <span id="bb84Bits">—</span></p>
+<p><strong>Time to crack (Shor):</strong> <span id="bb84Time">—</span></p>
+</div>
+
+<div class="card" id="rsaCard">
+<h2>🖥 Classical RSA</h2>
+<p>Generate RSA keys and encrypt a message:</p>
+<p><strong>N:</strong> <span id="rsaN">—</span></p>
+<p><strong>e:</strong> <span id="rsaE">—</span></p>
+<p><strong>d:</strong> <span id="rsaD">—</span></p>
+<p><strong>Ciphertext:</strong> <span id="rsaCipher">—</span></p>
+<p><strong>Time to crack (Shor):</strong> <span id="rsaTime">—</span></p>
+</div>
+
+<div class="card" id="bothDiffCard">
+<h2>⏱ Time Difference</h2>
+<p><strong>BB84 vs Classical:</strong> <span id="timeDiff">—</span></p>
+<p><strong>Type requiring more time:</strong> <span id="moreTime">—</span></p>
+</div>
+
+<h3>📜 Logs</h3>
+<div class="log" id="log"></div>
+
+</div>
+
+<script>
+// Globals
+let N, e, d, ciphertext;
+
+// Logger
+function log(msg){
+  const logDiv = document.getElementById("log");
+  logDiv.innerHTML += msg+"<br>";
+  logDiv.scrollTop = logDiv.scrollHeight;
+}
+
+// Modular exponentiation
+function modPow(base, exp, mod) {
+  let res = 1n;
+  base = base % mod;
+  while (exp > 0n) {
+    if (exp % 2n === 1n) res = (res*base)%mod;
+    exp = exp/2n;
+    base = (base*base)%mod;
+  }
+  return res;
+}
+
+// Modular inverse
+function modInv(a, m){
+  let [m0,x0,x1]=[m,0n,1n];
+  while(a>1n){
+    let q = a/m;
+    [a,m] = [m, a%m];
+    [x0,x1] = [x1 - q*x0, x0];
+  }
+  return x1<0n ? x1+m0 : x1;
+}
+
+// Classical brute force factorization (demo)
+async function runClassicalAttack(N){
+  const start = performance.now();
+  let found = null;
+  for(let i=2n;i*i<=N;i++){
+    if(N%i===0n){ found=i; break;}
+  }
+  const end = performance.now();
+  return {p: found, q: found? N/found:null, time: (end-start).toFixed(2)};
+}
+
+// Generate RSA
+function generateRSA(){
+  let p=61n,q=53n;
+  N=p*q;
+  let phi = (p-1n)*(q-1n);
+  e=17n;
+  d=modInv(e,phi);
+  let msg=42n;
+  ciphertext=modPow(msg,e,N);
+  document.getElementById("rsaN").innerText=N;
+  document.getElementById("rsaE").innerText=e;
+  document.getElementById("rsaD").innerText=d;
+  document.getElementById("rsaCipher").innerText=ciphertext;
+  log(`RSA keys generated. Ciphertext=${ciphertext}`);
+}
+
+// Generate BB84 key bits
+function generateBB84Bits(length=16){
+  let bits="";
+  for(let i=0;i<length;i++){
+    bits+=Math.random()<0.5?"0":"1";
+  }
+  document.getElementById("bb84Bits").innerText=bits;
+  log(`BB84 key generated: ${bits}`);
+}
+
+// Show/hide sections based on mode
+function updateVisibility(){
+  const mode = document.getElementById("mode").value;
+  document.getElementById("bb84Card").style.display = (mode==="bb84" || mode==="both") ? "block" : "none";
+  document.getElementById("rsaCard").style.display = (mode==="classical" || mode==="both") ? "block" : "none";
+  document.getElementById("bothDiffCard").style.display = (mode==="both") ? "block" : "none";
+}
+
+// Run simulation
+async function runSimulation(){
+  const mode=document.getElementById("mode").value;
+  log(`Simulation started in mode: ${mode}`);
+  document.getElementById("bb84Bits").innerText="—";
+  document.getElementById("bb84Time").innerText="—";
+  document.getElementById("rsaN").innerText="—";
+  document.getElementById("rsaE").innerText="—";
+  document.getElementById("rsaD").innerText="—";
+  document.getElementById("rsaCipher").innerText="—";
+  document.getElementById("rsaTime").innerText="—";
+  document.getElementById("timeDiff").innerText="—";
+  document.getElementById("moreTime").innerText="—";
+
+  let bb84Time=0, classicalTime=0;
+
+  if(mode==="bb84" || mode==="both"){
+    generateBB84Bits();
+    const start = performance.now();
+    await new Promise(r=>setTimeout(r,300)); // simulate quantum time
+    const res = await runClassicalAttack(1231n); // demo factor for BB84
+    const end = performance.now();
+    bb84Time = (end-start).toFixed(2);
+    document.getElementById("bb84Time").innerText=bb84Time+" ms";
+    log(`BB84 simulated Shor attack time: ${bb84Time} ms`);
+  }
+
+  if(mode==="classical" || mode==="both"){
+    generateRSA();
+    const start = performance.now();
+    const res = await runClassicalAttack(N);
+    const end = performance.now();
+    classicalTime = (end-start).toFixed(2);
+    document.getElementById("rsaTime").innerText=classicalTime+" ms";
+    log(`Classical RSA simulated Shor attack time: ${classicalTime} ms`);
+  }
+
+  if(mode==="both"){
+    const diff=(classicalTime-bb84Time).toFixed(2);
+    document.getElementById("timeDiff").innerText=diff+" ms";
+    const more = classicalTime>bb84Time ? "Classical RSA" : "BB84 Quantum";
+    document.getElementById("moreTime").innerText=more;
+    log(`In this simulation, ${more} requires more time to crack.`);
+  }
+}
+
+// Initialize
+updateVisibility();
+</script>
+</body>
+</html>

@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Shor Simulator — Interactive Explainer</title>
+<style>
+  :root{ --bg:#0e1117; --card:#07101a; --muted:#94a3b8; --accent: rgb(255 75 75 / 1); --good:#10b981; --warn:#f59e0b; --text: rgb(250,250,250);} 
+  body{font-family:Inter,system-ui,Arial,sans-serif;background:linear-gradient(180deg,#0b0f16,#07101a);color:var(--text);margin:0;padding:20px}
+  h1{margin:0 0 12px;font-size:22px;color:var(--accent)}
+  .top{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  input[type=number]{padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);width:140px;background:#08101a;color:inherit}
+  button, .button{background:var(--accent); color:var(--text); border:none; padding:8px 12px; border-radius:8px; cursor:pointer}
+  button.secondary{background:var(--warn);color:#081227}
+  .layout{display:grid;grid-template-columns:1fr 420px;gap:18px;margin-top:18px}
+  .card{background:linear-gradient(180deg,var(--card),#06101a);padding:14px;border-radius:12px;box-shadow:0 6px 18px rgba(0,0,0,0.6)}
+  .section-title{font-size:14px;color:var(--muted);margin-bottom:8px}
+  .small{color:var(--muted);font-size:13px}
+
+  /* left: simulation */
+  .state-row{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+  .box{background:#061324;padding:10px;border-radius:10px;min-width:120px;text-align:center}
+  .box .label{font-size:12px;color:var(--muted)}
+  .box .value{font-size:16px;margin-top:6px}
+  .progress{height:10px;background:#071b2a;border-radius:8px;overflow:hidden;margin-top:10px}
+  .prog-inner{height:100%;width:0%;background:linear-gradient(90deg,var(--accent),#34d399);transition:width .35s ease}
+
+  /* visual explainer steps */
+  .steps{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+  .step{display:flex;gap:12px;align-items:flex-start;background:#081827;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.02)}
+  .step .icon{width:44px;height:44px;border-radius:8px;background:linear-gradient(180deg,#071a2b,#092737);display:flex;align-items:center;justify-content:center;font-size:20px}
+  .step .content .title{font-weight:600}
+  .step .content .desc{font-size:13px;color:var(--muted);margin-top:4px}
+
+  /* explanation modal area */
+  .explain{margin-top:12px;background:linear-gradient(180deg,#041427,#071a2b);padding:12px;border-radius:10px}
+  .explain h3{margin:0 0 6px}
+
+  /* right column */
+  .right .visual-output{display:flex;flex-direction:column;gap:8px}
+  .visual-card{background:linear-gradient(180deg,#061d2a,#041322);padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.03)}
+  .visual-card .title{font-size:13px;color:var(--muted)}
+  .visual-card .big{font-size:18px;margin-top:8px}
+
+  .log{background:#03131a;padding:10px;border-radius:8px;height:170px;overflow:auto;font-size:12px;color:var(--muted)}
+  .controls{display:flex;gap:8px;margin-top:8px}
+
+  footer{margin-top:14px;color:var(--muted);font-size:12px}
+
+  /* subtle animations */
+  .fade-in{animation:fadeIn .45s ease both}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+
+<h1>Shor Simulator — Interactive Explainer</h1>
+<div class="top">
+  <div class="card" style="display:flex;gap:12px;align-items:center">
+    <div>
+      <div class="small">Enter plaintext (number &lt; N)</div>
+      <input id="plaintext" type="number" value="42">
+    </div>
+    <div style="margin-left:6px">
+      <button id="genKeys">Generate RSA Keys</button>
+      <button class="secondary" id="shorAttack">Run Shor Attack</button>
+      <button id="exportBtn">Export JSON</button>
+    </div>
+  </div>
+  <div style="flex:1"></div>
+  <div class="small">Tip: Type a number and try keys & attack. The UI explains each step for non-technical viewers.</div>
+</div>
+
+<div class="layout">
+  <!-- left: simulator + explainer -->
+  <div>
+    <div class="card">
+      <div class="section-title">Live state</div>
+      <div class="state-row">
+        <div class="box">
+          <div class="label">Public modulus N</div>
+          <div class="value" id="Nval">—</div>
+        </div>
+        <div class="box">
+          <div class="label">Public exponent e</div>
+          <div class="value" id="eval">—</div>
+        </div>
+        <div class="box">
+          <div class="label">Ciphertext (locked message)</div>
+          <div class="value" id="cipherText">—</div>
+        </div>
+        <div class="box">
+          <div class="label">Bob's decrypted</div>
+          <div class="value" id="bobPlain">—</div>
+        </div>
+      </div>
+
+      <div class="progress"><div class="prog-inner" id="progInner"></div></div>
+
+      <div class="section-title" style="margin-top:12px">What happens (visual)</div>
+      <div class="steps" id="steps"></div>
+
+      <div class="explain" id="explain">
+        <h3>Quick explanation of Shor's attack</h3>
+        <p class="small">Shor's algorithm is a quantum algorithm that factors large numbers quickly. RSA's security depends on factoring the public modulus N into two primes p and q. If an attacker (Eve) gets p and q, she can compute the private key and decrypt messages. This demo simulates finding p & q and shows how Eve recovers the message.</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <div class="section-title">Step-by-step explanation</div>
+      <div class="step fade-in">
+        <div class="icon">🔒</div>
+        <div class="content">
+          <div class="title">1) Alice locks the message</div>
+          <div class="desc">Alice encrypts the plaintext using Bob's public key. Only someone with the private key can decrypt.</div>
+        </div>
+      </div>
+      <div class="step fade-in">
+        <div class="icon">📡</div>
+        <div class="content">
+          <div class="title">2) Ciphertext travels</div>
+          <div class="desc">The encrypted message (ciphertext) is sent over the network. An eavesdropper sees only the ciphertext and the public key (N, e).</div>
+        </div>
+      </div>
+      <div class="step fade-in">
+        <div class="icon">🧑‍🔬</div>
+        <div class="content">
+          <div class="title">3) Eve uses Shor's algorithm</div>
+          <div class="desc">Using a quantum computer, Eve factors N into p and q. From p and q she computes the private key d and then decrypts the ciphertext.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- right: visual outputs + logs -->
+  <div class="right">
+    <div class="card visual-output">
+      <div class="visual-card">
+        <div class="title">🔒 Locked message (ciphertext)</div>
+        <div class="big" id="vCipher">—</div>
+      </div>
+      <div class="visual-card">
+        <div class="title">🧮 Eve found primes</div>
+        <div class="big" id="vPrimes">—</div>
+      </div>
+      <div class="visual-card">
+        <div class="title">🔑 Recovered private key (d)</div>
+        <div class="big" id="vD">—</div>
+      </div>
+      <div class="visual-card">
+        <div class="title">📖 Eve unlocked message</div>
+        <div class="big" id="vPlain">—</div>
+      </div>
+
+      <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+        <label class="small" style="margin-right:6px">Show technical log</label>
+        <input id="toggleLog" type="checkbox">
+      </div>
+      <div id="logWrap" style="margin-top:8px;display:none">
+        <div class="section-title">Technical log</div>
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>Demo: small primes chosen for readability. Real RSA uses huge primes — Shor would need a large quantum computer to break real RSA keys.</footer>
+
+<script>
+// Helpers
+function toBig(n){ try{ return BigInt(n); }catch(e){ return null; } }
+function modPow(base, exp, mod){ let r=1n,b=base%mod,e=exp; while(e>0n){ if(e&1n) r=(r*b)%mod; b=(b*b)%mod; e>>=1n;} return r; }
+function egcd(a,b){ if(b===0n) return [a,1n,0n]; const [g,x1,y1]=egcd(b,a%b); return [g,y1,x1-(a/b)*y1]; }
+function modInv(a,m){ const [g,x]=egcd(a,m); if(g!==1n) throw new Error('no-inv'); return ((x%m)+m)%m; }
+
+// State
+let plaintext = 42n; let N=null,e=17n; let ciphertext=null; let p=null,q=null,d=null; let logArr=[];
+
+// DOM
+const Nval = document.getElementById('Nval');
+const evalEl = document.getElementById('eval');
+const cipherText = document.getElementById('cipherText');
+const bobPlain = document.getElementById('bobPlain');
+const progInner = document.getElementById('progInner');
+const steps = document.getElementById('steps');
+const vCipher = document.getElementById('vCipher');
+const vPrimes = document.getElementById('vPrimes');
+const vD = document.getElementById('vD');
+const vPlain = document.getElementById('vPlain');
+const logDiv = document.getElementById('log');
+const logWrap = document.getElementById('logWrap');
+
+// UI Controls
+const plaintextInput = document.getElementById('plaintext');
+const genKeysBtn = document.getElementById('genKeys');
+const shorBtn = document.getElementById('shorAttack');
+const exportBtn = document.getElementById('exportBtn');
+const toggleLog = document.getElementById('toggleLog');
+
+// Utilities
+function appendLog(msg){ const t=new Date().toLocaleTimeString(); logArr.push(`${t} — ${msg}`); logDiv.innerHTML = logArr.map(m=>`&gt; ${m}`).join('<br>'); logDiv.scrollTop = logDiv.scrollHeight; }
+function setProgress(p){ progInner.style.width = Math.max(0,Math.min(100,p))+'%'; }
+function clearVisual(){ steps.innerHTML=''; vCipher.innerText='—'; vPrimes.innerText='—'; vD.innerText='—'; vPlain.innerText='—'; }
+
+// Step UI helper
+function pushStep(icon,title,desc){ const el=document.createElement('div'); el.className='step fade-in'; el.innerHTML=`<div class="icon">${icon}</div><div class="content"><div class="title">${title}</div><div class="desc">${desc}</div></div>`; steps.appendChild(el); }
+
+// RSA functions
+function encryptPlain(){ if(!N) return; ciphertext = modPow(plaintext,e,N); cipherText.innerText = ciphertext.toString(); vCipher.innerText = ciphertext.toString(); }
+function decryptWithBob(){ if(!N) return; try{ const bobD = modInv(e, (p? (p-1n)*(q-1n) :  (BigInt(1)))); // dummy if p undefined - but we won't use
+    // We store bob's d when keys generated separately
+  }catch(e){}
+}
+
+// Generate small readable RSA keys
+function generateRSAKeys(){ clearVisual(); logArr=[]; logDiv.innerHTML=''; setProgress(0);
+  const primes = [47n,53n,59n,61n,67n];
+  p = primes[Math.floor(Math.random()*primes.length)];
+  do{ q = primes[Math.floor(Math.random()*primes.length)]; } while(q===p);
+  N = p*q; const phi = (p-1n)*(q-1n);
+  // choose e small and coprime
+  e = 17n; if( (phi % e) === 0n ){ e = 3n; }
+  d = modInv(e,phi); // bob's private key
+  // update UI
+  Nval.innerText = N.toString(); evalEl.innerText = e.toString();
+  appendLog(`Generated public key (N=${N}, e=${e}) and private key d computed.`);
+  // if plaintext too large reduce mod N
+  if(plaintext>=N){ appendLog('Plaintext >= N — reduced mod N'); plaintext = plaintext % N; plaintextInput.value = plaintext.toString(); }
+  // encrypt and show
+  encryptPlain(); bobPlain.innerText = modPow(ciphertext,d,N).toString();
+}
+
+// Run Shor attack (simulated here with trial factor for readability)
+async function runShorAttack(){ if(!N){ appendLog('No keys generated. Click "Generate RSA Keys".'); return; }
+  clearVisual(); appendLog('Starting Shor attack (demo mode).'); setProgress(10);
+  pushStep('🔒','Alice encrypts the message','Alice uses Bob\'s public key (N,e) to lock the message.');
+  await sleep(350); setProgress(20);
+  pushStep('📡','Ciphertext is transmitted','Only ciphertext and the public key are visible to eavesdroppers.');
+  await sleep(350); setProgress(30);
+  pushStep('🧑‍🔬','Eve runs Shor\'s algorithm','Using a quantum computer, Eve attempts to factor N into p and q. (Demo uses trial factor for readability.)');
+  await sleep(400); setProgress(45);
+
+  // try to factor (trial division — demo only)
+  appendLog('Attempting to factor N (trial division demo)...');
+  let found=null;
+  for(let i=2n;i*i<=N;i++){
+    if(N % i === 0n){ found=i; break; }
+  }
+  if(!found){ appendLog('Factorization failed (N too large for demo trial division).'); pushStep('⚠️','Factorization failed','In practice, Shor\'s algorithm would be needed to factor large N.'); setProgress(100); return; }
+  const pf = found; const qf = N / found;
+  appendLog(`Found primes p=${pf}, q=${qf}`);
+  pushStep('🧮','Primes discovered','Eve discovered p = '+pf+' and q = '+qf+' which multiply to N.');
+  vPrimes.innerText = pf.toString() + ' × ' + qf.toString();
+  setProgress(65);
+  await sleep(450);
+
+  // recover d and decrypt
+  const phi = (pf-1n)*(qf-1n);
+  const recoveredD = modInv(e,phi);
+  appendLog('Recovered private key d = '+recoveredD);
+  pushStep('🔑','Private key recovered','From p and q, Eve computes the private key d = '+recoveredD+'.');
+  vD.innerText = recoveredD.toString();
+  setProgress(80);
+  await sleep(350);
+
+  // Eve decrypts
+  const evePlain = modPow(ciphertext,recoveredD,N);
+  appendLog('Eve decrypted the message: '+evePlain);
+  pushStep('📖','Message unlocked','Eve uses d to decrypt and obtains the original plaintext = '+evePlain+'.');
+  vPlain.innerText = evePlain.toString();
+  setProgress(100);
+
+  // Visual match check
+  if(evePlain===plaintext){ appendLog('Eve successfully recovered the original message. RSA broken for this demo key.'); }
+  else{ appendLog('Decryption mismatch — something unexpected occurred.'); }
+}
+
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+// Auto update when plaintext changes
+plaintextInput.addEventListener('input', (ev)=>{
+  const val = ev.target.value.trim(); if(val==='') return; try{ plaintext = BigInt(val); }catch(e){ return; }
+  // if keys generated, re-encrypt using public key
+  if(N){ encryptPlain(); // show Bob's decryption using stored private d
+    try{ bobPlain.innerText = modPow(ciphertext,d,N).toString(); }catch(e){ bobPlain.innerText = '—'; }
+  }
+});
+
+// Buttons
+genKeysBtn.addEventListener('click', generateRSAKeys);
+shorBtn.addEventListener('click', runShorAttack);
+exportBtn.addEventListener('click', ()=>{ const out={N:N?.toString(),e:e?.toString(),plaintext:plaintext.toString(),ciphertext:ciphertext?.toString(),p:p?.toString(),q:q?.toString(),d:d?.toString()}; const b=new Blob([JSON.stringify(out,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='shor_demo.json'; a.click(); });
+
+// Toggle log visibility
+toggleLog.addEventListener('change', (e)=>{ logWrap.style.display = e.target.checked ? 'block' : 'none'; });
+
+// Initialize
+generateRSAKeys();
+</script>
+
+</body>
+</html>

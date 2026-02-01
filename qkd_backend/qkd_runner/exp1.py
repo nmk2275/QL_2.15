@@ -9,7 +9,13 @@ Backends:
 
 import numpy as np
 from qiskit import QuantumCircuit
-from qiskit_ibm_runtime import SamplerV2 as Sampler
+try:
+    from qiskit_ibm_runtime import SamplerV2 as Sampler
+except Exception:
+    try:
+        from qiskit_ibm_runtime import Sampler as Sampler
+    except Exception:
+        Sampler = None
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 from qiskit.visualization import circuit_drawer
 import matplotlib

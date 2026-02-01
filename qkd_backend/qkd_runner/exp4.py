@@ -6,7 +6,13 @@ try:
 except ImportError:
     HAS_AER = False
 from qiskit.primitives import BackendSamplerV2
-from qiskit_ibm_runtime import SamplerV2 as Sampler
+try:
+    from qiskit_ibm_runtime import SamplerV2 as Sampler
+except Exception:
+    try:
+        from qiskit_ibm_runtime import Sampler as Sampler
+    except Exception:
+        Sampler = None
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 from qkd_backend.backend_config import get_backend_service
 import os

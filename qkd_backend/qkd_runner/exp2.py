@@ -8,7 +8,13 @@ Supports user-selectable backend:
 
 import numpy as np
 from qiskit import QuantumCircuit
-from qiskit_ibm_runtime import SamplerV2 as Sampler
+try:
+    from qiskit_ibm_runtime import SamplerV2 as Sampler
+except Exception:
+    try:
+        from qiskit_ibm_runtime import Sampler as Sampler
+    except Exception:
+        Sampler = None
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 import os
 import hashlib

@@ -3,7 +3,18 @@
 
 import numpy as np
 from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
-from qiskit_ibm_runtime import QiskitRuntimeService, SamplerV2 as Sampler
+try:
+    from qiskit_ibm_runtime import QiskitRuntimeService, SamplerV2 as Sampler
+except Exception:
+    try:
+        from qiskit_ibm_runtime import QiskitRuntimeService, Sampler as Sampler
+    except Exception:
+        # Ensure names exist even if runtime package is not available at import time
+        try:
+            from qiskit_ibm_runtime import QiskitRuntimeService
+        except Exception:
+            QiskitRuntimeService = None
+        Sampler = None
 try:
     from qiskit_aer import AerSimulator
     from qiskit_aer.noise import NoiseModel

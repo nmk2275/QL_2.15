@@ -119,8 +119,22 @@ def run_exp4(message=None, n=20, shots=1024, backend_type="local", api_token=Non
     # Run the circuit
     job = sampler.run([qc_isa], shots=shots)
     result = job.result()
-    counts_dict = result[0].data.c.get_counts() if hasattr(result[0].data, 'c') else result[0].data.get_counts()
-    bob_results = list(counts_dict.keys())[0]
+    
+    # Handle both old (list indexing) and new (direct access) API styles
+    try:
+        # Try new API style first (direct access without indexing)
+        if hasattr(result.data, 'c'):
+            counts_dict = result.data.c.get_counts()
+        else:
+            counts_dict = result.data.get_counts()
+    except (TypeError, AttributeError):
+        try:
+            # Try old API style (with list indexing)
+            counts_dict = result[0].data.c.get_counts() if hasattr(result[0].data, 'c') else result[0].data.get_counts()
+        except Exception:
+            counts_dict = {}
+    
+    bob_results = list(counts_dict.keys())[0] if counts_dict else "0"
     bob_bits = [int(b) for b in bob_results[::-1]]
 
     # Step 4: Find matching bases and generate sifted key if QBER ≤ 11%

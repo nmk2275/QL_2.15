@@ -124,7 +124,18 @@ def run_exp2(message=None, bit_num=20, shots=1024, rng_seed=None, backend_type="
 
     # Run using selected sampler
     job = sampler.run([qc_isa], shots=shots)
-    counts = job.result()[0].data.c.get_counts()
+    result = job.result()
+    
+    # Handle both old (list indexing) and new (direct access) API styles
+    try:
+        counts = result[0].data.c.get_counts()
+    except (TypeError, IndexError):
+        try:
+            counts = result.data.c.get_counts()
+        except (AttributeError, TypeError):
+            # Fallback for even newer API
+            counts = result[0].data.get_counts()
+    
     key = list(counts.keys())[0]
     bmeas = list(key)
     bbits = [int(x) for x in bmeas][::-1]

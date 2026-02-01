@@ -124,9 +124,18 @@ def run_exp3(message=None, bit_num=20, shots=1024, rng_seed=None, backend_type="
     job = sampler.run([qc_isa], shots=shots)
     res = job.result()
     try:
-        counts = res[0].data.c.get_counts()
-    except Exception:
-        counts = res[0].data.get_counts()
+        # Try new API style first (direct access without indexing)
+        counts = res.data.c.get_counts()
+    except (TypeError, AttributeError):
+        try:
+            # Try old API style (with list indexing)
+            counts = res[0].data.c.get_counts()
+        except Exception:
+            try:
+                # Fallback
+                counts = res[0].data.get_counts()
+            except Exception:
+                counts = res.data.get_counts()
     key = _extract_bitstring_from_counts(counts, rng, shots)
     emeas = list(key)
     ebits = [int(x) for x in emeas][::-1]
@@ -160,9 +169,18 @@ def run_exp3(message=None, bit_num=20, shots=1024, rng_seed=None, backend_type="
     job2 = sampler.run([qc2_isa], shots=shots)
     res2 = job2.result()
     try:
-        counts2 = res2[0].data.c.get_counts()
-    except Exception:
-        counts2 = res2[0].data.get_counts()
+        # Try new API style first (direct access without indexing)
+        counts2 = res2.data.c.get_counts()
+    except (TypeError, AttributeError):
+        try:
+            # Try old API style (with list indexing)
+            counts2 = res2[0].data.c.get_counts()
+        except Exception:
+            try:
+                # Fallback
+                counts2 = res2[0].data.get_counts()
+            except Exception:
+                counts2 = res2.data.get_counts()
     key2 = _extract_bitstring_from_counts(counts2, rng, shots)
     bmeas = list(key2)
     bbits = [int(x) for x in bmeas][::-1]

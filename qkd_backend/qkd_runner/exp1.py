@@ -109,8 +109,19 @@ def run_exp1(message=None, backend_type="local", error_mitigation=False, bit_num
     # Run
     job = sampler.run([qc_isa], shots=shots)
 
-    counts = job.result()[0].data.c.get_counts()
-    countsint = job.result()[0].data.c.get_int_counts()
+    result = job.result()
+    # Handle both old (list indexing) and new (direct access) API styles
+    try:
+        counts = result[0].data.c.get_counts()
+        countsint = result[0].data.c.get_int_counts()
+    except (TypeError, IndexError):
+        try:
+            counts = result.data.c.get_counts()
+            countsint = result.data.c.get_int_counts()
+        except (AttributeError, TypeError):
+            # Fallback for even newer API
+            counts = result[0].data.get_counts()
+            countsint = result[0].data.get_int_counts()
 
     keys = counts.keys()
     key = list(keys)[0]

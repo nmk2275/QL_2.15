@@ -99,11 +99,15 @@ def run_exp3(message=None, bit_num=20, shots=1024, rng_seed=None, backend_type="
         if HAS_AER:
             aer_backend = AerSimulator()
             qc_isa = qc
+            if BackendSamplerV2 is None:
+                raise RuntimeError("BackendSamplerV2 not available: install qiskit or qiskit-aer")
             sampler = BackendSamplerV2(backend=aer_backend)
         else:
             # Fallback to FakeBrisbane if AerSimulator is not available
             backend = get_backend_service("local")
             qc_isa = qc
+            if BackendSamplerV2 is None:
+                raise RuntimeError("BackendSamplerV2 not available: install qiskit or qiskit-aer")
             sampler = BackendSamplerV2(backend=backend)
     else:
         # IBM runtime backend
@@ -112,6 +116,8 @@ def run_exp3(message=None, bit_num=20, shots=1024, rng_seed=None, backend_type="
         pm = generate_preset_pass_manager(target=target, optimization_level=3)
         qc_isa = pm.run(qc)
         # SamplerV2 alias imported as Sampler
+        if Sampler is None:
+            raise RuntimeError("Sampler not available: install qiskit-ibm-runtime")
         sampler = Sampler(mode=backend)
 
     # Eve’s measurement

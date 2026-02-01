@@ -80,17 +80,23 @@ def run_exp1(message=None, backend_type="local", error_mitigation=False, bit_num
         if HAS_AER:
             aer_backend = AerSimulator()
             qc_isa = qc
+            if BackendSamplerV2 is None:
+                raise RuntimeError("BackendSamplerV2 not available: install qiskit or qiskit-aer")
             sampler = BackendSamplerV2(backend=aer_backend)
         else:
             # Fallback to FakeBrisbane if AerSimulator is not available
             backend = get_backend_service("local")
             qc_isa = qc
+            if BackendSamplerV2 is None:
+                raise RuntimeError("BackendSamplerV2 not available: install qiskit or qiskit-aer")
             sampler = BackendSamplerV2(backend=backend)
     else:
         backend = get_backend_service("ibm", api_token=api_token)
         target = backend.target
         pm = generate_preset_pass_manager(target=target, optimization_level=3)
         qc_isa = pm.run(qc)
+        if Sampler is None:
+            raise RuntimeError("Sampler not available: install qiskit-ibm-runtime")
         sampler = Sampler(mode=backend)
 
     # Draw circuit

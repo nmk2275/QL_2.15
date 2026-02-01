@@ -110,18 +110,38 @@ def run_exp1(message=None, backend_type="local", error_mitigation=False, bit_num
     job = sampler.run([qc_isa], shots=shots)
 
     result = job.result()
-    # Handle both old (list indexing) and new (direct access) API styles
+    
+    # Handle different Qiskit API versions for accessing counts
+    counts = None
+    countsint = None
     try:
-        counts = result[0].data.c.get_counts()
-        countsint = result[0].data.c.get_int_counts()
-    except (TypeError, IndexError):
+        # New API: result is iterable, access first element's data
+        for quasi_dist in result:
+            counts = quasi_dist.data.c.get_counts()
+            countsint = quasi_dist.data.c.get_int_counts()
+            break
+    except (TypeError, AttributeError, IndexError):
+        pass
+    
+    if counts is None:
         try:
-            counts = result.data.c.get_counts()
-            countsint = result.data.c.get_int_counts()
-        except (AttributeError, TypeError):
-            # Fallback for even newer API
-            counts = result[0].data.get_counts()
-            countsint = result[0].data.get_int_counts()
+            # Older API: result[0].data.c.get_counts()
+            counts = result[0].data.c.get_counts()
+            countsint = result[0].data.c.get_int_counts()
+        except (TypeError, AttributeError, IndexError):
+            pass
+    
+    if counts is None:
+        try:
+            # Even older API: result.get_counts()
+            counts = result.get_counts()
+            countsint = result.get_int_counts() if hasattr(result, 'get_int_counts') else {}
+        except (TypeError, AttributeError):
+            counts = {}
+            countsint = {}
+    
+    if not counts:
+        raise RuntimeError("Failed to extract counts from sampler result")
 
     keys = counts.keys()
     key = list(keys)[0]

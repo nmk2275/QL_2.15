@@ -123,19 +123,28 @@ def run_exp3(message=None, bit_num=20, shots=1024, rng_seed=None, backend_type="
     # Eve’s measurement
     job = sampler.run([qc_isa], shots=shots)
     res = job.result()
+    counts = None
     try:
-        # Try new API style first (direct access without indexing)
-        counts = res.data.c.get_counts()
-    except (TypeError, AttributeError):
+        # New API: result is iterable
+        for quasi_dist in res:
+            counts = quasi_dist.data.c.get_counts()
+            break
+    except (TypeError, AttributeError, IndexError):
+        pass
+    
+    if counts is None:
         try:
-            # Try old API style (with list indexing)
+            # Older API
             counts = res[0].data.c.get_counts()
-        except Exception:
-            try:
-                # Fallback
-                counts = res[0].data.get_counts()
-            except Exception:
-                counts = res.data.get_counts()
+        except (TypeError, AttributeError, IndexError):
+            pass
+    
+    if counts is None:
+        try:
+            # Fallback
+            counts = res.get_counts() if hasattr(res, 'get_counts') else {}
+        except (TypeError, AttributeError):
+            counts = {}
     key = _extract_bitstring_from_counts(counts, rng, shots)
     emeas = list(key)
     ebits = [int(x) for x in emeas][::-1]
@@ -168,19 +177,28 @@ def run_exp3(message=None, bit_num=20, shots=1024, rng_seed=None, backend_type="
 
     job2 = sampler.run([qc2_isa], shots=shots)
     res2 = job2.result()
+    counts2 = None
     try:
-        # Try new API style first (direct access without indexing)
-        counts2 = res2.data.c.get_counts()
-    except (TypeError, AttributeError):
+        # New API: result is iterable
+        for quasi_dist in res2:
+            counts2 = quasi_dist.data.c.get_counts()
+            break
+    except (TypeError, AttributeError, IndexError):
+        pass
+    
+    if counts2 is None:
         try:
-            # Try old API style (with list indexing)
+            # Older API
             counts2 = res2[0].data.c.get_counts()
-        except Exception:
-            try:
-                # Fallback
-                counts2 = res2[0].data.get_counts()
-            except Exception:
-                counts2 = res2.data.get_counts()
+        except (TypeError, AttributeError, IndexError):
+            pass
+    
+    if counts2 is None:
+        try:
+            # Fallback
+            counts2 = res2.get_counts() if hasattr(res2, 'get_counts') else {}
+        except (TypeError, AttributeError):
+            counts2 = {}
     key2 = _extract_bitstring_from_counts(counts2, rng, shots)
     bmeas = list(key2)
     bbits = [int(x) for x in bmeas][::-1]

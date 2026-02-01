@@ -126,15 +126,32 @@ def run_exp2(message=None, bit_num=20, shots=1024, rng_seed=None, backend_type="
     job = sampler.run([qc_isa], shots=shots)
     result = job.result()
     
-    # Handle both old (list indexing) and new (direct access) API styles
+    # Handle different Qiskit API versions for accessing counts
+    counts = None
     try:
-        counts = result[0].data.c.get_counts()
-    except (TypeError, IndexError):
+        # New API: result is iterable, access first element's data
+        for quasi_dist in result:
+            counts = quasi_dist.data.c.get_counts()
+            break
+    except (TypeError, AttributeError, IndexError):
+        pass
+    
+    if counts is None:
         try:
-            counts = result.data.c.get_counts()
-        except (AttributeError, TypeError):
-            # Fallback for even newer API
-            counts = result[0].data.get_counts()
+            # Older API: result[0].data.c.get_counts()
+            counts = result[0].data.c.get_counts()
+        except (TypeError, AttributeError, IndexError):
+            pass
+    
+    if counts is None:
+        try:
+            # Even older API: result.get_counts()
+            counts = result.get_counts()
+        except (TypeError, AttributeError):
+            counts = {}
+    
+    if not counts:
+        raise RuntimeError("Failed to extract counts from sampler result")
     
     key = list(counts.keys())[0]
     bmeas = list(key)

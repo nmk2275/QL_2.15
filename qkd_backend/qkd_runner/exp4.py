@@ -120,21 +120,37 @@ def run_exp4(message=None, n=20, shots=1024, backend_type="local", api_token=Non
     job = sampler.run([qc_isa], shots=shots)
     result = job.result()
     
-    # Handle both old (list indexing) and new (direct access) API styles
+    # Handle different Qiskit API versions for accessing counts
+    counts_dict = None
     try:
-        # Try new API style first (direct access without indexing)
-        if hasattr(result.data, 'c'):
-            counts_dict = result.data.c.get_counts()
-        else:
-            counts_dict = result.data.get_counts()
-    except (TypeError, AttributeError):
+        # New API: result is iterable
+        for quasi_dist in result:
+            if hasattr(quasi_dist.data, 'c'):
+                counts_dict = quasi_dist.data.c.get_counts()
+            else:
+                counts_dict = quasi_dist.data.get_counts()
+            break
+    except (TypeError, AttributeError, IndexError):
+        pass
+    
+    if counts_dict is None:
         try:
-            # Try old API style (with list indexing)
+            # Older API: result[0].data.c.get_counts()
             counts_dict = result[0].data.c.get_counts() if hasattr(result[0].data, 'c') else result[0].data.get_counts()
-        except Exception:
+        except (TypeError, AttributeError, IndexError):
+            pass
+    
+    if counts_dict is None:
+        try:
+            # Even older API: result.get_counts()
+            counts_dict = result.get_counts()
+        except (TypeError, AttributeError):
             counts_dict = {}
     
-    bob_results = list(counts_dict.keys())[0] if counts_dict else "0"
+    if not counts_dict:
+        raise RuntimeError("Failed to extract counts from sampler result")
+    
+    bob_results = list(counts_dict.keys())[0]
     bob_bits = [int(b) for b in bob_results[::-1]]
 
     # Step 4: Find matching bases and generate sifted key if QBER ≤ 11%

@@ -5,7 +5,13 @@ try:
     HAS_AER = True
 except ImportError:
     HAS_AER = False
-from qiskit.primitives import BackendSamplerV2
+try:
+    from qiskit.primitives import BackendSamplerV2
+except Exception:
+    try:
+        from qiskit.primitives import BackendSampler as BackendSamplerV2
+    except Exception:
+        BackendSamplerV2 = None
 try:
     from qiskit_ibm_runtime import SamplerV2 as Sampler
 except Exception:

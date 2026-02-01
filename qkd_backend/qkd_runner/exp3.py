@@ -9,7 +9,6 @@ except Exception:
     try:
         from qiskit_ibm_runtime import QiskitRuntimeService, Sampler as Sampler
     except Exception:
-        # Ensure names exist even if runtime package is not available at import time
         try:
             from qiskit_ibm_runtime import QiskitRuntimeService
         except Exception:
@@ -22,7 +21,13 @@ try:
 except ImportError:
     HAS_AER = False
     NoiseModel = None
-from qiskit.primitives import BackendSamplerV2
+try:
+    from qiskit.primitives import BackendSamplerV2
+except Exception:
+    try:
+        from qiskit.primitives import BackendSampler as BackendSamplerV2
+    except Exception:
+        BackendSamplerV2 = None
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

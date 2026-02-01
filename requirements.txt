@@ -10,7 +10,7 @@ matplotlib>=3.7.0,<4.0.0
 # Quantum Computing Framework
 qiskit>=0.45.0,<1.0.0
 qiskit-aer>=0.13.0,<1.0.0
-qiskit-ibm-runtime>=0.12.0,<1.0.0
+qiskit-ibm-runtime>=0.20.0,<1.0.0
 
 # Additional dependencies (required by qiskit packages)
 scipy>=1.10.0
@@ -26,7 +26,4 @@ gunicorn>=21.2.0,<22.0.0
 python-dotenv>=1.0.0,<2.0.0
 
 # Required for qiskit-ibm-runtime (provides pkg_resources)
-setuptools>=65.0.0
-
-# Required for qiskit-ibm-runtime
 setuptools>=65.0.0

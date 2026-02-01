@@ -128,30 +128,60 @@ def run_exp2(message=None, bit_num=20, shots=1024, rng_seed=None, backend_type="
     
     # Handle different Qiskit API versions for accessing counts
     counts = None
+    
+    # Debug: log what we're working with
+    print(f"DEBUG: result type = {type(result)}")
+    print(f"DEBUG: result dir = {[x for x in dir(result) if not x.startswith('_')]}")
+    
+    # Try multiple methods to extract counts
     try:
-        # New API: result is iterable, access first element's data
+        # Method 1: Iterate over result (new API)
         for quasi_dist in result:
-            counts = quasi_dist.data.c.get_counts()
+            print(f"DEBUG: quasi_dist type = {type(quasi_dist)}")
+            if hasattr(quasi_dist, 'data'):
+                if hasattr(quasi_dist.data, 'c'):
+                    counts = quasi_dist.data.c.get_counts()
+                else:
+                    counts = quasi_dist.data.get_counts()
             break
-    except (TypeError, AttributeError, IndexError):
+    except (TypeError, AttributeError, IndexError) as e:
+        print(f"DEBUG: Method 1 failed: {e}")
         pass
     
     if counts is None:
         try:
-            # Older API: result[0].data.c.get_counts()
-            counts = result[0].data.c.get_counts()
-        except (TypeError, AttributeError, IndexError):
+            # Method 2: Access via indexing
+            print(f"DEBUG: Trying indexing method")
+            quasi_dist = result[0]
+            print(f"DEBUG: result[0] type = {type(quasi_dist)}")
+            if hasattr(quasi_dist, 'data'):
+                if hasattr(quasi_dist.data, 'c'):
+                    counts = quasi_dist.data.c.get_counts()
+                else:
+                    counts = quasi_dist.data.get_counts()
+        except (TypeError, AttributeError, IndexError) as e:
+            print(f"DEBUG: Method 2 failed: {e}")
             pass
     
     if counts is None:
         try:
-            # Even older API: result.get_counts()
-            counts = result.get_counts()
-        except (TypeError, AttributeError):
-            counts = {}
+            # Method 3: Direct call on result
+            print(f"DEBUG: Trying direct call on result")
+            if hasattr(result, 'get_counts'):
+                counts = result.get_counts()
+            elif hasattr(result, '__iter__'):
+                # Try iterating again with more debug info
+                items = list(result)
+                print(f"DEBUG: Found {len(items)} items in result")
+                if items:
+                    counts = items[0].data.c.get_counts() if hasattr(items[0].data, 'c') else items[0].data.get_counts()
+        except (TypeError, AttributeError, Exception) as e:
+            print(f"DEBUG: Method 3 failed: {e}")
+            pass
     
-    if not counts:
-        raise RuntimeError("Failed to extract counts from sampler result")
+    if counts is None:
+        print(f"DEBUG: All methods failed. result object: {result}")
+        raise RuntimeError("Failed to extract counts from sampler result. Try using AerSimulator or check qiskit version.")
     
     key = list(counts.keys())[0]
     bmeas = list(key)

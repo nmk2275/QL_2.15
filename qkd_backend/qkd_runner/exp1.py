@@ -28,7 +28,13 @@ try:
     HAS_AER = True
 except ImportError:
     HAS_AER = False
-from qiskit.primitives import BackendSamplerV2
+try:
+    from qiskit.primitives import BackendSamplerV2
+except Exception:
+    try:
+        from qiskit.primitives import BackendSampler as BackendSamplerV2
+    except Exception:
+        BackendSamplerV2 = None
 from qkd_backend.backend_config import get_backend_service
 
 

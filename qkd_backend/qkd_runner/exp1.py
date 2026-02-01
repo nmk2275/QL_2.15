@@ -212,4 +212,3 @@ def encrypt_with_existing_key(exp_result, message):
         "final_secret_key": exp_result.get("final_secret_key"),
         # Optionally, include other fields you want to show
     }
-

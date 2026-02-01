@@ -2,12 +2,25 @@
 import os
 import json
 from qiskit_ibm_runtime import QiskitRuntimeService
-from qiskit_ibm_runtime.fake_provider import FakeBrisbane
+try:
+    from qiskit_ibm_runtime.fake_provider import FakeBrisbane
+except Exception:
+    FakeBrisbane = None
 try:
     from qiskit_aer import AerSimulator
     HAS_AER = True
 except ImportError:
     HAS_AER = False
+
+# Provide a minimal fallback fake backend class when neither FakeBrisbane nor AerSimulator
+# are available. This avoids import-time failures; runtime behaviour will be limited.
+if FakeBrisbane is None:
+    class _SimpleFakeBackend:
+        def __init__(self):
+            self.name = "simple-fake-backend"
+    _SIMPLE_FAKE_AVAILABLE = True
+else:
+    _SIMPLE_FAKE_AVAILABLE = False
 
 def _get_ibm_token():
     """Get IBM token from multiple sources"""
@@ -127,16 +140,33 @@ def get_backend_service(backend_type="local", api_token=None):
 
 def get_local_backend():
     """Get local simulation backend"""
-    backend = FakeBrisbane()
-    print(f"Using local backend: {backend.name}")
-    return backend
+    if FakeBrisbane is not None:
+        backend = FakeBrisbane()
+        print(f"Using local backend: {backend.name}")
+        return backend
+    if HAS_AER:
+        backend = AerSimulator()
+        print("Using AerSimulator as local backend")
+        return backend
+    if _SIMPLE_FAKE_AVAILABLE:
+        backend = _SimpleFakeBackend()
+        print(f"Using simple fake backend placeholder: {backend.name}")
+        return backend
+    raise RuntimeError("No suitable local backend available: install qiskit-aer or qiskit-ibm-runtime fake provider")
+
 
 def get_aer_simulator():
     """Get Aer simulator backend"""
     if HAS_AER:
         backend = AerSimulator()
         print("Using Aer simulator backend")
-    else:
+        return backend
+    if FakeBrisbane is not None:
         backend = FakeBrisbane()
         print("AerSimulator not available, using FakeBrisbane backend")
-    return backend
+        return backend
+    if _SIMPLE_FAKE_AVAILABLE:
+        backend = _SimpleFakeBackend()
+        print("AerSimulator not available, using simple fake backend placeholder")
+        return backend
+    raise RuntimeError("No Aer simulator available: install qiskit-aer or provide a fake provider")

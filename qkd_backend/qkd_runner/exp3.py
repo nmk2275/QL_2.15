@@ -32,6 +32,7 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from qkd_backend.backend_config import get_backend_service
+from qkd_backend.qkd_runner.qrng import generate_qrng_bits
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 import os
 from qiskit.visualization import circuit_drawer
@@ -62,15 +63,25 @@ def _extract_bitstring_from_counts(counts, rng, shots):
 def run_exp3(message=None, bit_num=20, shots=1024, rng_seed=None, backend_type="local", api_token=None):
     rng = np.random.default_rng(rng_seed)
 
+    # Generate random bits: use QRNG if IBM backend, otherwise NumPy
+    if backend_type == "ibm":
+        # Get IBM backend first for QRNG
+        backend = get_backend_service("ibm", api_token=api_token)
+        # Generate random bits using QRNG
+        abits = np.array(generate_qrng_bits(bit_num, backend, shots=1)).astype(int)
+        abase = np.array(generate_qrng_bits(bit_num, backend, shots=1)).astype(int)
+        ebase = np.array(generate_qrng_bits(bit_num, backend, shots=1)).astype(int)
+        bbase = np.array(generate_qrng_bits(bit_num, backend, shots=1)).astype(int)
+    else:
+        # Use NumPy random for local backend
+        abits = np.round(rng.random(bit_num)).astype(int)
+        abase = np.round(rng.random(bit_num)).astype(int)
+        ebase = np.round(rng.random(bit_num)).astype(int)
+        bbase = np.round(rng.random(bit_num)).astype(int)
+
     # Step 1: Sender's random bits and bases
-    abits = np.round(rng.random(bit_num)).astype(int)
-    abase = np.round(rng.random(bit_num)).astype(int)
-
     # Step 2: Eve's random measurement bases
-    ebase = np.round(rng.random(bit_num)).astype(int)
-
     # Step 3: Receiver's random measurement bases
-    bbase = np.round(rng.random(bit_num)).astype(int)
 
     # --- Sender prepares and sends qubits ---
     qr = QuantumRegister(bit_num, "q")
@@ -110,8 +121,7 @@ def run_exp3(message=None, bit_num=20, shots=1024, rng_seed=None, backend_type="
                 raise RuntimeError("BackendSamplerV2 not available: install qiskit or qiskit-aer")
             sampler = BackendSamplerV2(backend=backend)
     else:
-        # IBM runtime backend
-        backend = get_backend_service("ibm", api_token=api_token)
+        # IBM runtime backend (already obtained for QRNG, reuse it)
         target = backend.target
         pm = generate_preset_pass_manager(target=target, optimization_level=3)
         qc_isa = pm.run(qc)

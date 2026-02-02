@@ -21,6 +21,7 @@ except Exception:
         Sampler = None
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 from qkd_backend.backend_config import get_backend_service
+from qkd_backend.qkd_runner.qrng import generate_qrng_bits
 import os
 from qiskit.visualization import circuit_drawer
 import matplotlib
@@ -49,15 +50,27 @@ def xor_encrypt_decrypt(message_bytes, key_bits):
     return bytes(cipher_bytes)
 
 def run_exp4(message=None, n=20, shots=1024, backend_type="local", api_token=None):
+    # Generate random bits: use QRNG if IBM backend, otherwise Python random
+    if backend_type == "ibm":
+        # Get IBM backend first for QRNG
+        backend = get_backend_service("ibm", api_token=api_token)
+        # Generate random bits using QRNG
+        alice_bits = generate_qrng_bits(n, backend, shots=1)
+        alice_bases = generate_qrng_bits(n, backend, shots=1)  # 0 = Z-basis, 1 = X-basis
+        # Eve measures alternate bits (0, 2, 4, ...)
+        eve_bits_full = generate_qrng_bits(n, backend, shots=1)
+        eve_bases = [eve_bits_full[i] if i % 2 == 0 else None for i in range(n)]
+        bob_bases = generate_qrng_bits(n, backend, shots=1)
+    else:
+        # Use Python random for local backend
+        alice_bits = [random.randint(0, 1) for _ in range(n)]
+        alice_bases = [random.randint(0, 1) for _ in range(n)]  # 0 = Z-basis, 1 = X-basis
+        # Eve measures alternate bits (0, 2, 4, ...)
+        eve_bases = [random.randint(0, 1) if i % 2 == 0 else None for i in range(n)]
+        bob_bases = [random.randint(0, 1) for _ in range(n)]
+
     # Alice prepares random bits and bases
-    alice_bits = [random.randint(0, 1) for _ in range(n)]
-    alice_bases = [random.randint(0, 1) for _ in range(n)]  # 0 = Z-basis, 1 = X-basis
-
-    # Eve measures alternate bits (0, 2, 4, ...)
-    eve_bases = [random.randint(0, 1) if i % 2 == 0 else None for i in range(n)]
-
     # Bob chooses random bases
-    bob_bases = [random.randint(0, 1) for _ in range(n)]
 
     # Quantum circuit
     qc = QuantumCircuit(n, n)
@@ -102,7 +115,7 @@ def run_exp4(message=None, n=20, shots=1024, backend_type="local", api_token=Non
                 raise RuntimeError("BackendSamplerV2 not available: install qiskit or qiskit-aer")
             sampler = BackendSamplerV2(backend=backend)
     else:
-        backend = get_backend_service("ibm", api_token=api_token)
+        # Backend already obtained for QRNG, reuse it
         target = backend.target
         pm = generate_preset_pass_manager(target=target, optimization_level=3)
         qc_isa = pm.run(qc)

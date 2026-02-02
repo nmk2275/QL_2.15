@@ -36,6 +36,7 @@ except Exception:
     except Exception:
         BackendSamplerV2 = None
 from qkd_backend.backend_config import get_backend_service
+from qkd_backend.qkd_runner.qrng import generate_qrng_bits
 
 
 def xor_encrypt_decrypt(message_bytes, key_bits):
@@ -50,10 +51,21 @@ def run_exp1(message=None, backend_type="local", error_mitigation=False, bit_num
     rng = np.random.default_rng(rng_seed)
     qc = QuantumCircuit(bit_num, bit_num)
 
-    # QKD step 1: Random bits and bases for Sender
-    abits = np.round(rng.random(bit_num))
-    abase = np.round(rng.random(bit_num))
+    # Generate random bits: use QRNG if IBM backend, otherwise NumPy
+    if backend_type == "ibm":
+        # Get IBM backend first for QRNG
+        backend = get_backend_service("ibm", api_token=api_token)
+        # Generate random bits using QRNG
+        abits = np.array(generate_qrng_bits(bit_num, backend, shots=1))
+        abase = np.array(generate_qrng_bits(bit_num, backend, shots=1))
+        bbase = np.array(generate_qrng_bits(bit_num, backend, shots=1))
+    else:
+        # Use NumPy random for local backend
+        abits = np.round(rng.random(bit_num))
+        abase = np.round(rng.random(bit_num))
+        bbase = np.round(rng.random(bit_num))
 
+    # QKD step 1: Random bits and bases for Sender
     for n in range(bit_num):
         if abits[n] == 0:
             if abase[n] == 1:
@@ -68,7 +80,6 @@ def run_exp1(message=None, backend_type="local", error_mitigation=False, bit_num
     qc.barrier()
 
     # QKD step 2: Random bases for Receiver
-    bbase = np.round(rng.random(bit_num))
 
     for m in range(bit_num):
         if bbase[m] == 1:
@@ -91,7 +102,7 @@ def run_exp1(message=None, backend_type="local", error_mitigation=False, bit_num
                 raise RuntimeError("BackendSamplerV2 not available: install qiskit or qiskit-aer")
             sampler = BackendSamplerV2(backend=backend)
     else:
-        backend = get_backend_service("ibm", api_token=api_token)
+        # Backend already obtained for QRNG, reuse it
         target = backend.target
         pm = generate_preset_pass_manager(target=target, optimization_level=3)
         qc_isa = pm.run(qc)

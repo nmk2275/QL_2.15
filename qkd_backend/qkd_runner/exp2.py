@@ -35,6 +35,7 @@ except Exception:
     except Exception:
         BackendSamplerV2 = None
 from qkd_backend.backend_config import get_backend_service
+from qkd_backend.qkd_runner.qrng import generate_qrng_bits
 
 def xor_encrypt_decrypt(message_bytes, key_bits):
     # message_bytes: bytes
@@ -65,12 +66,22 @@ def xor_encrypt_decrypt(message_bytes, key_bits):
 def run_exp2(message=None, bit_num=20, shots=1024, rng_seed=None, backend_type="local", api_token=None):
     rng = np.random.default_rng(rng_seed)
 
-    # Step 1: Sender's random bits and bases
-    abits = np.round(rng.random(bit_num))
-    abase = np.round(rng.random(bit_num))
+    # Generate random bits: use QRNG if IBM backend, otherwise NumPy
+    if backend_type == "ibm":
+        # Get IBM backend first for QRNG
+        backend = get_backend_service("ibm", api_token=api_token)
+        # Generate random bits using QRNG
+        abits = np.array(generate_qrng_bits(bit_num, backend, shots=1))
+        abase = np.array(generate_qrng_bits(bit_num, backend, shots=1))
+        bbase = np.array(generate_qrng_bits(bit_num, backend, shots=1))
+    else:
+        # Use NumPy random for local backend
+        abits = np.round(rng.random(bit_num))
+        abase = np.round(rng.random(bit_num))
+        bbase = np.round(rng.random(bit_num))
 
+    # Step 1: Sender's random bits and bases
     # Step 2: Receiver's random measurement bases
-    bbase = np.round(rng.random(bit_num))
 
     # Sender prepares and sends qubits
     qc = QuantumCircuit(bit_num, bit_num)
@@ -107,7 +118,7 @@ def run_exp2(message=None, bit_num=20, shots=1024, rng_seed=None, backend_type="
                 raise RuntimeError("BackendSamplerV2 not available: install qiskit or qiskit-aer")
             sampler = BackendSamplerV2(backend=backend)
     else:
-        backend = get_backend_service("ibm", api_token=api_token)
+        # Backend already obtained for QRNG, reuse it
         target = backend.target
         pm = generate_preset_pass_manager(target=target, optimization_level=3)
         qc_isa = pm.run(qc)

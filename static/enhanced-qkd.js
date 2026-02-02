@@ -120,6 +120,11 @@ function createSidePanel() {
         sidePanel.style.display = 'flex';
         // ensure canvasWrap shrinks
         if (canvasWrap) canvasWrap.style.flex = '1 1 auto';
+        
+        // Re-initialize or render if panel exists
+        setTimeout(() => {
+            initializeBlochSphere();
+        }, 50);
         return;
     }
 
@@ -225,6 +230,9 @@ function createSidePanel() {
             }
             // remove panel element
             if (sidePanel && sidePanel.parentNode) sidePanel.parentNode.removeChild(sidePanel);
+            // reset bloch sphere instance so it re-initializes with new canvas
+            window.blochSphere = null;
+            blochSphere = null;
             // restore overflow
             document.documentElement.style.overflowX = '';
             sidePanel.removeEventListener('transitionend', onEnd);

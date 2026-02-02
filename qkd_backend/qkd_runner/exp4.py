@@ -135,30 +135,40 @@ def run_exp4(message=None, n=20, shots=1024, backend_type="local", api_token=Non
     
     # Handle different Qiskit API versions for accessing counts
     counts_dict = None
-    try:
-        # New API: result is iterable
-        for quasi_dist in result:
-            if hasattr(quasi_dist.data, 'c'):
-                counts_dict = quasi_dist.data.c.get_counts()
-            else:
-                counts_dict = quasi_dist.data.get_counts()
-            break
-    except (TypeError, AttributeError, IndexError):
-        pass
-    
-    if counts_dict is None:
+    # Try to extract counts from quasi_dists (Qiskit >=0.45 SamplerResult)
+    if hasattr(result, "quasi_dists"):
+        counts_dict = {}
+        bit_num = qc_isa.num_qubits
+        for dist in result.quasi_dists:
+            for int_key, prob in dist.items():
+                bitstring = format(int_key, f'0{bit_num}b')
+                counts_dict[bitstring] = prob
+            break  # Only use the first quasi_dist
+
+    # Fallback to old methods if quasi_dists is not present
+    if counts_dict is None or not counts_dict:
         try:
-            # Older API: result[0].data.c.get_counts()
-            counts_dict = result[0].data.c.get_counts() if hasattr(result[0].data, 'c') else result[0].data.get_counts()
+            # New API: result is iterable
+            for quasi_dist in result:
+                if hasattr(quasi_dist.data, 'c'):
+                    counts_dict = quasi_dist.data.c.get_counts()
+                else:
+                    counts_dict = quasi_dist.data.get_counts()
+                break
         except (TypeError, AttributeError, IndexError):
             pass
-    
-    if counts_dict is None:
-        try:
-            # Even older API: result.get_counts()
-            counts_dict = result.get_counts()
-        except (TypeError, AttributeError):
-            counts_dict = {}
+        if counts_dict is None:
+            try:
+                # Older API: result[0].data.c.get_counts()
+                counts_dict = result[0].data.c.get_counts() if hasattr(result[0].data, 'c') else result[0].data.get_counts()
+            except (TypeError, AttributeError, IndexError):
+                pass
+        if counts_dict is None:
+            try:
+                # Even older API: result.get_counts()
+                counts_dict = result.get_counts()
+            except (TypeError, AttributeError):
+                counts_dict = {}
     
     if not counts_dict:
         raise RuntimeError("Failed to extract counts from sampler result")

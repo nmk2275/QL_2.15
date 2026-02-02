@@ -21,7 +21,6 @@ from qiskit.visualization import circuit_drawer
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import hashlib
 import os
 try:
     from qiskit_aer import AerSimulator
@@ -38,6 +37,7 @@ except Exception:
 from qkd_backend.backend_config import get_backend_service
 from qkd_backend.qkd_runner.qrng import generate_qrng_bits
 from qkd_backend.qkd_runner.cascade_error_correction import cascade_error_correction
+from qkd_backend.qkd_runner.privacy_amplification import privacy_amplify
 
 
 def xor_encrypt_decrypt(message_bytes, key_bits):
@@ -120,38 +120,49 @@ def run_exp1(message=None, backend_type="local", error_mitigation=False, bit_num
 
     # Run
     job = sampler.run([qc_isa], shots=shots)
-
     result = job.result()
-    
+
     # Handle different Qiskit API versions for accessing counts
     counts = None
     countsint = None
-    try:
-        # New API: result is iterable, access first element's data
-        for quasi_dist in result:
-            counts = quasi_dist.data.c.get_counts()
-            countsint = quasi_dist.data.c.get_int_counts()
-            break
-    except (TypeError, AttributeError, IndexError):
-        pass
-    
-    if counts is None:
+    # Try to extract counts from quasi_dists (Qiskit >=0.45 SamplerResult)
+    if hasattr(result, "quasi_dists"):
+        counts = {}
+        countsint = {}
+        bit_num = qc_isa.num_qubits
+        for dist in result.quasi_dists:
+            for int_key, prob in dist.items():
+                bitstring = format(int_key, f'0{bit_num}b')
+                counts[bitstring] = prob
+                countsint[int_key] = prob
+            break  # Only use the first quasi_dist
+
+    # Fallback to old methods if quasi_dists is not present
+    if counts is None or not counts:
         try:
-            # Older API: result[0].data.c.get_counts()
-            counts = result[0].data.c.get_counts()
-            countsint = result[0].data.c.get_int_counts()
+            # New API: result is iterable, access first element's data
+            for quasi_dist in result:
+                counts = quasi_dist.data.c.get_counts()
+                countsint = quasi_dist.data.c.get_int_counts()
+                break
         except (TypeError, AttributeError, IndexError):
             pass
-    
-    if counts is None:
-        try:
-            # Even older API: result.get_counts()
-            counts = result.get_counts()
-            countsint = result.get_int_counts() if hasattr(result, 'get_int_counts') else {}
-        except (TypeError, AttributeError):
-            counts = {}
-            countsint = {}
-    
+        if counts is None:
+            try:
+                # Older API: result[0].data.c.get_counts()
+                counts = result[0].data.c.get_counts()
+                countsint = result[0].data.c.get_int_counts()
+            except (TypeError, AttributeError, IndexError):
+                pass
+        if counts is None:
+            try:
+                # Even older API: result.get_counts()
+                counts = result.get_counts()
+                countsint = result.get_int_counts() if hasattr(result, 'get_int_counts') else {}
+            except (TypeError, AttributeError):
+                counts = {}
+                countsint = {}
+
     if not counts:
         raise RuntimeError("Failed to extract counts from sampler result")
 
@@ -185,9 +196,10 @@ def run_exp1(message=None, backend_type="local", error_mitigation=False, bit_num
     error_corrected_key = ''.join(map(str, corrected_bbits))
     print("Key after Error Correction:", error_corrected_key)
 
-    # --- Privacy Amplification ---
-    secret_key = hashlib.sha256(error_corrected_key.encode()).hexdigest()
-    secret_key = secret_key[:64]  # shorten for demonstration
+    # --- Privacy Amplification (Toeplitz Matrix Universal Hashing) ---
+    loss = 1 - match_count / len(agoodbits) if agoodbits else 1
+    qber = loss  # QBER is the same as loss (error rate)
+    secret_key = privacy_amplify(error_corrected_key, qber=qber)
 
     print("Final Secret Key:", secret_key)
 

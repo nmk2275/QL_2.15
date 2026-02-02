@@ -17,7 +17,6 @@ except Exception:
         Sampler = None
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 import os
-import hashlib
 from qiskit.visualization import circuit_drawer
 import matplotlib
 matplotlib.use('Agg')
@@ -37,6 +36,7 @@ except Exception:
 from qkd_backend.backend_config import get_backend_service
 from qkd_backend.qkd_runner.qrng import generate_qrng_bits
 from qkd_backend.qkd_runner.cascade_error_correction import cascade_error_correction
+from qkd_backend.qkd_runner.privacy_amplification import privacy_amplify
 
 def xor_encrypt_decrypt(message_bytes, key_bits):
     # message_bytes: bytes
@@ -137,64 +137,59 @@ def run_exp2(message=None, bit_num=20, shots=1024, rng_seed=None, backend_type="
     # Run using selected sampler
     job = sampler.run([qc_isa], shots=shots)
     result = job.result()
-    
+
     # Handle different Qiskit API versions for accessing counts
     counts = None
-    
-    # Debug: log what we're working with
-    print(f"DEBUG: result type = {type(result)}")
-    print(f"DEBUG: result dir = {[x for x in dir(result) if not x.startswith('_')]}")
-    
-    # Try multiple methods to extract counts
-    try:
-        # Method 1: Iterate over result (new API)
-        for quasi_dist in result:
-            print(f"DEBUG: quasi_dist type = {type(quasi_dist)}")
-            if hasattr(quasi_dist, 'data'):
-                if hasattr(quasi_dist.data, 'c'):
-                    counts = quasi_dist.data.c.get_counts()
-                else:
-                    counts = quasi_dist.data.get_counts()
-            break
-    except (TypeError, AttributeError, IndexError) as e:
-        print(f"DEBUG: Method 1 failed: {e}")
-        pass
-    
-    if counts is None:
+
+    # Try to extract counts from quasi_dists (Qiskit >=0.45 SamplerResult)
+    if hasattr(result, "quasi_dists"):
+        counts = {}
+        bit_num = qc_isa.num_qubits
+        for dist in result.quasi_dists:
+            for int_key, prob in dist.items():
+                bitstring = format(int_key, f'0{bit_num}b')
+                counts[bitstring] = prob
+            break  # Only use the first quasi_dist
+
+    # Fallback to old methods if quasi_dists is not present
+    if counts is None or not counts:
         try:
-            # Method 2: Access via indexing
-            print(f"DEBUG: Trying indexing method")
-            quasi_dist = result[0]
-            print(f"DEBUG: result[0] type = {type(quasi_dist)}")
-            if hasattr(quasi_dist, 'data'):
-                if hasattr(quasi_dist.data, 'c'):
-                    counts = quasi_dist.data.c.get_counts()
-                else:
-                    counts = quasi_dist.data.get_counts()
+            # Method 1: Iterate over result (new API)
+            for quasi_dist in result:
+                if hasattr(quasi_dist, 'data'):
+                    if hasattr(quasi_dist.data, 'c'):
+                        counts = quasi_dist.data.c.get_counts()
+                    else:
+                        counts = quasi_dist.data.get_counts()
+                break
         except (TypeError, AttributeError, IndexError) as e:
-            print(f"DEBUG: Method 2 failed: {e}")
             pass
-    
-    if counts is None:
-        try:
-            # Method 3: Direct call on result
-            print(f"DEBUG: Trying direct call on result")
-            if hasattr(result, 'get_counts'):
-                counts = result.get_counts()
-            elif hasattr(result, '__iter__'):
-                # Try iterating again with more debug info
-                items = list(result)
-                print(f"DEBUG: Found {len(items)} items in result")
-                if items:
-                    counts = items[0].data.c.get_counts() if hasattr(items[0].data, 'c') else items[0].data.get_counts()
-        except (TypeError, AttributeError, Exception) as e:
-            print(f"DEBUG: Method 3 failed: {e}")
-            pass
-    
-    if counts is None:
-        print(f"DEBUG: All methods failed. result object: {result}")
+        if counts is None:
+            try:
+                # Method 2: Access via indexing
+                quasi_dist = result[0]
+                if hasattr(quasi_dist, 'data'):
+                    if hasattr(quasi_dist.data, 'c'):
+                        counts = quasi_dist.data.c.get_counts()
+                    else:
+                        counts = quasi_dist.data.get_counts()
+            except (TypeError, AttributeError, IndexError) as e:
+                pass
+        if counts is None:
+            try:
+                # Method 3: Direct call on result
+                if hasattr(result, 'get_counts'):
+                    counts = result.get_counts()
+                elif hasattr(result, '__iter__'):
+                    items = list(result)
+                    if items:
+                        counts = items[0].data.c.get_counts() if hasattr(items[0].data, 'c') else items[0].data.get_counts()
+            except (TypeError, AttributeError, Exception) as e:
+                pass
+
+    if counts is None or not counts:
         raise RuntimeError("Failed to extract counts from sampler result. Try using AerSimulator or check qiskit version.")
-    
+
     key = list(counts.keys())[0]
     bmeas = list(key)
     bbits = [int(x) for x in bmeas][::-1]
@@ -220,9 +215,9 @@ def run_exp2(message=None, bit_num=20, shots=1024, rng_seed=None, backend_type="
     error_corrected_key = ''.join(map(str, corrected_bbits))
     print("Key after Error Correction:", error_corrected_key)
 
-    # --- Privacy Amplification ---
-    secret_key = hashlib.sha256(error_corrected_key.encode()).hexdigest()
-    secret_key = secret_key[:64]  # shorten for demonstration
+    # --- Privacy Amplification (Toeplitz Matrix Universal Hashing) ---
+    qber = loss  # QBER is the same as loss (error rate)
+    secret_key = privacy_amplify(error_corrected_key, qber=qber)
 
     print("Final Secret Key:", secret_key)
 

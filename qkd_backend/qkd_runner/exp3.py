@@ -134,27 +134,38 @@ def run_exp3(message=None, bit_num=20, shots=1024, rng_seed=None, backend_type="
     job = sampler.run([qc_isa], shots=shots)
     res = job.result()
     counts = None
-    try:
-        # New API: result is iterable
-        for quasi_dist in res:
-            counts = quasi_dist.data.c.get_counts()
-            break
-    except (TypeError, AttributeError, IndexError):
-        pass
-    
-    if counts is None:
+    # Try to extract counts from quasi_dists (Qiskit >=0.45 SamplerResult)
+    if hasattr(res, "quasi_dists"):
+        counts = {}
+        bit_num = qc_isa.num_qubits
+        for dist in res.quasi_dists:
+            for int_key, prob in dist.items():
+                bitstring = format(int_key, f'0{bit_num}b')
+                counts[bitstring] = prob
+            break  # Only use the first quasi_dist
+
+    # Fallback to old methods if quasi_dists is not present
+    if counts is None or not counts:
         try:
-            # Older API
-            counts = res[0].data.c.get_counts()
+            # New API: result is iterable
+            for quasi_dist in res:
+                counts = quasi_dist.data.c.get_counts()
+                break
         except (TypeError, AttributeError, IndexError):
             pass
-    
-    if counts is None:
-        try:
-            # Fallback
-            counts = res.get_counts() if hasattr(res, 'get_counts') else {}
-        except (TypeError, AttributeError):
-            counts = {}
+        if counts is None:
+            try:
+                # Older API
+                counts = res[0].data.c.get_counts()
+            except (TypeError, AttributeError, IndexError):
+                pass
+        if counts is None:
+            try:
+                # Fallback
+                counts = res.get_counts() if hasattr(res, 'get_counts') else {}
+            except (TypeError, AttributeError):
+                counts = {}
+
     key = _extract_bitstring_from_counts(counts, rng, shots)
     emeas = list(key)
     ebits = [int(x) for x in emeas][::-1]

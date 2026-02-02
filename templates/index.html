@@ -1363,8 +1363,8 @@ if (msgBlock) msgBlock.style.display = 'block';
     // Show or hide the message input block based on experiment type
     if (exp === "exp1" || exp === "exp2") {
         const msgBlock = document.getElementById('messageInputBlock');
-    if (msgBlock) msgBlock.style.display = 'block';
-    } else {
+        if (msgBlock) msgBlock.style.display = 'block';
+    } else if (exp === "exp3" || exp === "exp4") {
         const msgBlock = document.getElementById('messageInputBlock');
         if (msgBlock) msgBlock.style.display = 'none';
     }

@@ -57,6 +57,7 @@ def _extract_bitstring_from_counts(counts, rng, shots):
         raise ValueError("Empty counts dictionary from sampler result.")
     outcomes, freqs = zip(*counts.items())
     probs = np.array(freqs) / shots
+    probs = probs / probs.sum()  # Ensure probabilities sum to 1
     choice = rng.choice(len(outcomes), p=probs)
     return outcomes[choice]
 

@@ -36,6 +36,7 @@ except Exception:
         BackendSamplerV2 = None
 from qkd_backend.backend_config import get_backend_service
 from qkd_backend.qkd_runner.qrng import generate_qrng_bits
+from qkd_backend.qkd_runner.cascade_error_correction import cascade_error_correction
 
 def xor_encrypt_decrypt(message_bytes, key_bits):
     # message_bytes: bytes
@@ -212,23 +213,8 @@ def run_exp2(message=None, bit_num=20, shots=1024, rng_seed=None, backend_type="
     fidelity = match_count / len(agoodbits) if agoodbits else 0
     loss = 1 - fidelity if agoodbits else 1
 
-    # --- Error Correction (Simple Parity) ---
-    block_size = 4  # adjust as needed
-    corrected_bbits = []
-
-    for i in range(0, len(agoodbits), block_size):
-        a_block = agoodbits[i:i+block_size]
-        b_block = bgoodbits[i:i+block_size]
-
-        # Compute parity
-        a_parity = sum(a_block) % 2
-        b_parity = sum(b_block) % 2
-
-        # If parity differs, flip last bit in Bob's block
-        if a_parity != b_parity and len(b_block) > 0:
-            b_block[-1] ^= 1  # flip last bit
-
-        corrected_bbits.extend(b_block)
+    # --- Error Correction (Cascade Protocol) ---
+    corrected_bbits = cascade_error_correction(agoodbits, bgoodbits, num_rounds=4, initial_block_size=8)
 
     # Display key after error correction
     error_corrected_key = ''.join(map(str, corrected_bbits))

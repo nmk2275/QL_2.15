@@ -37,6 +37,7 @@ except Exception:
         BackendSamplerV2 = None
 from qkd_backend.backend_config import get_backend_service
 from qkd_backend.qkd_runner.qrng import generate_qrng_bits
+from qkd_backend.qkd_runner.cascade_error_correction import cascade_error_correction
 
 
 def xor_encrypt_decrypt(message_bytes, key_bits):
@@ -174,18 +175,8 @@ def run_exp1(message=None, backend_type="local", error_mitigation=False, bit_num
             bgoodbits.append(bbits[n])
             if int(abits[n]) == bbits[n]:
                 match_count += 1
-    # --- Error Correction (Simple Parity) ---
-    block_size = 4
-    corrected_bbits = []
-
-    for i in range(0, len(agoodbits), block_size):
-        a_block = agoodbits[i:i+block_size]
-        b_block = bgoodbits[i:i+block_size]
-        a_parity = sum(a_block) % 2
-        b_parity = sum(b_block) % 2
-        if a_parity != b_parity and len(b_block) > 0:
-            b_block[-1] ^= 1
-        corrected_bbits.extend(b_block)
+    # --- Error Correction (Cascade Protocol) ---
+    corrected_bbits = cascade_error_correction(agoodbits, bgoodbits, num_rounds=4, initial_block_size=8)
 
     print(agoodbits)
     print(bgoodbits)

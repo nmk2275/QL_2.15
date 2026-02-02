@@ -104,6 +104,9 @@ def run_exp3(message=None, bit_num=20, shots=1024, rng_seed=None, backend_type="
         if ebase[m] == 1:
             qc.h(m)
         qc.measure(qr[m], cr[m])
+    # Ensure all qubits are measured (measure_all)
+    # (already measured above, but for safety)
+    # qc.measure_all()  # Not needed if all measured individually
 
     # Backend & Sampler selection
     if backend_type == "local":
@@ -185,6 +188,9 @@ def run_exp3(message=None, bit_num=20, shots=1024, rng_seed=None, backend_type="
             if ebase[n] == 1:
                 qc2.x(n)
                 qc2.h(n)
+    # Ensure all qubits are measured (measure_all)
+    # (already measured below, but for safety)
+    # qc2.measure_all()  # Not needed if all measured individually
 
     # Receiver's measurement
     for m in range(bit_num):
@@ -200,27 +206,44 @@ def run_exp3(message=None, bit_num=20, shots=1024, rng_seed=None, backend_type="
     job2 = sampler.run([qc2_isa], shots=shots)
     res2 = job2.result()
     counts2 = None
-    try:
-        # New API: result is iterable
-        for quasi_dist in res2:
-            counts2 = quasi_dist.data.c.get_counts()
-            break
-    except (TypeError, AttributeError, IndexError):
-        pass
-    
-    if counts2 is None:
+    # Try to extract counts from quasi_dists (Qiskit >=0.45 SamplerResult)
+    if hasattr(res2, "quasi_dists"):
+        counts2 = {}
+        bit_num2 = qc2_isa.num_qubits
+        for dist in res2.quasi_dists:
+            for int_key, prob in dist.items():
+                bitstring = format(int_key, f'0{bit_num2}b')
+                counts2[bitstring] = prob
+            break  # Only use the first quasi_dist
+    # Fallback to old methods if quasi_dists is not present
+    if counts2 is None or not counts2:
         try:
-            # Older API
-            counts2 = res2[0].data.c.get_counts()
+            # New API: result is iterable
+            for quasi_dist in res2:
+                counts2 = quasi_dist.data.c.get_counts()
+                break
         except (TypeError, AttributeError, IndexError):
             pass
-    
-    if counts2 is None:
-        try:
-            # Fallback
-            counts2 = res2.get_counts() if hasattr(res2, 'get_counts') else {}
-        except (TypeError, AttributeError):
-            counts2 = {}
+        if counts2 is None:
+            try:
+                # Older API
+                counts2 = res2[0].data.c.get_counts()
+            except (TypeError, AttributeError, IndexError):
+                pass
+        if counts2 is None:
+            try:
+                # Fallback
+                counts2 = res2.get_counts() if hasattr(res2, 'get_counts') else {}
+            except (TypeError, AttributeError):
+                counts2 = {}
+    # Safe fallback for empty counts2
+    if not counts2:
+        return {
+            "error": "No measurement results returned from quantum backend (counts2 empty).",
+            "abort_reason": "Quantum backend did not return any measurement results for Bob's circuit.",
+            "counts_bob": {},
+            "circuit_diagram_url": None
+        }
     key2 = _extract_bitstring_from_counts(counts2, rng, shots)
     bmeas = list(key2)
     bbits = [int(x) for x in bmeas][::-1]

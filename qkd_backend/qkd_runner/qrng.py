@@ -20,8 +20,6 @@ except Exception:
     except Exception:
         Sampler = None
 
-from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
-
 # Track last randomness source (for debugging / UI display)
 _last_rng_source = None
 
@@ -32,30 +30,12 @@ _last_rng_source = None
 def _is_real_ibm_hardware(backend):
     if backend is None:
         return False
-
-    name = ""
-    if hasattr(backend, "name"):
-        name = str(backend.name).lower()
-    else:
-        name = str(backend).lower()
-
-    # Explicit simulator / fake exclusions
-    simulator_keywords = [
-        "simulator",
-        "fake",
-        "aer",
-        "qasm",
-        "local",
-    ]
-
-    if any(k in name for k in simulator_keywords):
+    try:
+        name = backend.name()
+    except Exception:
         return False
-
-    # IBM Runtime backends expose `target`
-    if hasattr(backend, "target") and "ibm" in name:
-        return True
-
-    return False
+    name = str(name).lower()
+    return name.startswith("ibm_") and "sim" not in name and "aer" not in name
 
 
 # -------------------------------------------------------------------
@@ -109,12 +89,10 @@ def generate_qrng_bits(n, backend, shots=1, return_source=False):
             qc.h(i)
             qc.measure(i, i)
 
-        # Transpile for backend
-        pm = generate_preset_pass_manager(
-            target=backend.target,
-            optimization_level=3,
-        )
-        qc_isa = pm.run(qc)
+        # Transpile for backend (safe, no backend.target)
+        from qiskit import transpile
+
+        qc_isa = transpile(qc, backend)
 
         # Run job
         sampler = Sampler(mode=backend)

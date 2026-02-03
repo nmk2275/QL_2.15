@@ -120,9 +120,8 @@ def run_exp2(message=None, bit_num=20, shots=1024, rng_seed=None, backend_type="
             sampler = BackendSamplerV2(backend=backend)
     else:
         # Backend already obtained for QRNG, reuse it
-        target = backend.target
-        pm = generate_preset_pass_manager(target=target, optimization_level=3)
-        qc_isa = pm.run(qc)
+        from qiskit import transpile
+        qc_isa = transpile(qc, backend=backend, optimization_level=3)
         if Sampler is None:
             raise RuntimeError("Sampler not available: install qiskit-ibm-runtime")
         sampler = Sampler(mode=backend)

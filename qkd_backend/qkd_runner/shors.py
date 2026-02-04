@@ -203,7 +203,8 @@ st.markdown("""
 - RSA hides **two numbers inside one**
 - Shor **does not guess** those numbers
 - It finds a **repeating pattern**
-- That pattern **mathematically exposes** the hidden factors
+- That pattern **mathematically exposes** the hidden factor
+            s
 
 This is why **RSA is not safe** against quantum computers.
 """)

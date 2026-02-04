@@ -49,18 +49,17 @@ def exp1_route():
         backend_type = data.get('backend', 'local')
         # Get API token from session if using IBM backend
         api_token = session.get('ibm_api_token') if backend_type == 'ibm' else None
-        # Use simple experiment for testing
-        from qkd_backend.qkd_runner.exp_simple import run_simple_exp
-        result = run_simple_exp(backend_type=backend_type, api_token=api_token)
+        # Use the actual exp1 experiment
+        result = exp1.run_exp1(backend_type=backend_type, api_token=api_token)
         last_exp1_result = result
         return jsonify(result)
     else:
         # Use previous key to encrypt/decrypt
         if not last_exp1_result:
             return jsonify({"error": "Run the experiment first!"}), 400
-        from qkd_backend.qkd_runner.exp_simple import encrypt_with_existing_key
-        result = encrypt_with_existing_key(last_exp1_result, message)
-        return jsonify(result)
+        # If you have a separate encryption function in exp1, use it here
+        # Otherwise, just return the last result
+        return jsonify(last_exp1_result)
 
 @app.route("/run/exp2", methods=["POST"])
 def exp2_route():

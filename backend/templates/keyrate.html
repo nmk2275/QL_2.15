@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QKD Simulator</title>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<style>
+:root{
+  --bg1: rgb(14,17,23);
+  --bg2: #0b0e13;
+  --accent1: rgb(255 75 75 / 1);
+  --accent2: #7f1d1d;
+  --glass: rgba(255,255,255,0.02);
+  --text: rgb(250,250,250);
+}
+html,body{height:100%;margin:0;background:linear-gradient(180deg,var(--bg1),var(--bg2));color:var(--text);font-family:Inter,Segoe UI,system-ui,Arial,sans-serif}
+.container { max-width: 1200px; margin: 2rem auto; padding: 2rem; background: rgba(255,255,255,0.02); border-radius: 18px; box-shadow: 0 4px 32px rgba(0,0,0,0.6); }
+h1,h2,h3{color:var(--text);} 
+.card { background: rgba(255,255,255,0.01); padding: 16px; border-radius: 1rem; box-shadow: 0 2px 12px rgba(0,0,0,0.6); margin-bottom: 16px; }
+.grid {
+  display: grid;
+  gap: 2rem;
+}
+.grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+label, .output {
+  color: #e9f7ff;
+}
+input[type=range] {
+  width: 100%;
+  accent-color: var(--accent1);
+}
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 9999px;
+  padding: 8px 18px;
+  font-size: 1rem;
+  font-weight: 700;
+  background: linear-gradient(90deg,var(--accent1),var(--accent2));
+  color: var(--text);
+  box-shadow: 0 2px 8px rgba(16,185,129,0.10);
+  transition: background 0.18s;
+}
+button.active {
+  background: #10b981;
+  color: #fff;
+}
+button:hover {
+  opacity: 0.95;
+}
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+#qkdChart {
+  background: #07121a;
+  border-radius: 12px;
+}
+@media (max-width: 900px) {
+  .grid { grid-template-columns: 1fr; }
+  .container { padding: 1rem; }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>QKD Key-Rate vs Distance</h1>
+
+  <div class="grid grid-cols-3">
+    <div class="card">
+      <h2>Channel & Detectors</h2>
+      <label>Fiber loss α (dB/km): <span id="alphaVal">0.200</span></label>
+      <input type="range" min="0.15" max="0.5" step="0.01" id="alpha">
+      <label>Detector efficiency η<sub>det</sub>: <span id="etaDetVal">0.60</span></label>
+      <input type="range" min="0.1" max="0.95" step="0.01" id="etaDet">
+      <label>Dark count rate (cps): <span id="darkRateVal">100</span></label>
+      <input type="range" min="1" max="1000" step="1" id="darkRate">
+      <label>Intrinsic error e<sub>channel</sub>: <span id="eChanVal">0.010</span></label>
+      <input type="range" min="0" max="0.1" step="0.001" id="eChan">
+    </div>
+
+    <div class="card">
+      <h2>Source & Protocol</h2>
+      <label>Repetition rate (Hz): <span id="fRepVal">10.00M</span></label>
+      <input type="range" min="1e5" max="1e9" step="1e5" id="fRep">
+      <label>Basis sift factor: <span id="basisSiftVal">0.50</span></label>
+      <input type="range" min="0.25" max="0.9" step="0.01" id="basisSift">
+      <label>Emission probability: <span id="emissionProbVal">1.00</span></label>
+      <input type="range" min="0.1" max="1" step="0.01" id="emissionProb">
+      <div class="checkbox">
+        <input type="checkbox" id="showTF" checked>
+        <label for="showTF">Show Twin-Field comparison</label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Distance & Repeaters</h2>
+      <label>Max distance (km): <span id="maxDistVal">400</span></label>
+      <input type="range" min="50" max="1000" step="10" id="maxDist">
+      <label>Step (km): <span id="stepVal">5</span></label>
+      <input type="range" min="1" max="50" step="1" id="step">
+      <label>Repeaters:</label>
+      <div id="repeaters" style="display:flex; flex-wrap:wrap; gap:8px; margin-top:4px;"></div>
+      <div class="checkbox">
+        <input type="checkbox" id="directOnly">
+        <label for="directOnly">Direct link only</label>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div id="qkdChart" style="height:400px;"></div>
+  </div>
+</div>
+
+<script>
+  // --- Helpers ---
+  function binaryEntropy(q) {
+    if (q <= 0 || q >= 1) return 0;
+    const log2 = x => Math.log(x) / Math.log(2);
+    return -q * log2(q) - (1 - q) * log2(1 - q);
+  }
+
+  function secureRepeaterSingleLink({ L_km, alpha_db_per_km, eta_det, f_rep, dark_count_rate, e_channel, emission_prob, basis_sift_factor }) {
+    const eta_ch = Math.pow(10, -alpha_db_per_km * L_km / 10);
+    const p_signal = emission_prob * eta_ch * eta_det;
+    const dark_per_gate = dark_count_rate / f_rep;
+    const p_total = p_signal + dark_per_gate;
+    const R_raw = f_rep * p_signal * basis_sift_factor;
+    const error_rate = (0.5 * dark_per_gate + e_channel * p_signal) / Math.max(p_total, 1e-30);
+    const QBER = Math.min(Math.max(error_rate, 0), 0.4999);
+    const H = binaryEntropy(QBER);
+    const R_secure = R_raw * Math.max(0, 1 - 2 * H);
+    return { R_secure };
+  }
+
+  function tfQKDRate({ L_km, alpha_db_per_km, f_rep, eta_det, basis_sift_factor }) {
+    const eta = Math.pow(10, -alpha_db_per_km * L_km / 10);
+    const k = 0.2;
+    return Math.max(0, f_rep * basis_sift_factor * k * Math.sqrt(eta) * eta_det);
+  }
+
+  function fmtHz(v) {
+    if (v == null || !isFinite(v)) return "";
+    if (v === 0) return "0";
+    const units = [[1e9, "G"], [1e6, "M"], [1e3, "k"], [1, ""]];
+    for (const [u, s] of units) if (v >= u) return (v / u).toFixed(2) + s;
+    return v.toFixed(2);
+  }
+
+  // --- State ---
+  let alpha=0.2, etaDet=0.6, fRep=10e6, darkRate=100, eChan=0.01, basisSift=0.5, emissionProb=1, maxDist=400, step=5;
+  let repeaterCounts=[0,1,3,7], showTF=true, showDirectOnly=false;
+  const colorPalette = ["#4f46e5", "#06b6d4", "#22c55e", "#f59e0b", "#ef4444", "#8b5cf6"];
+
+  // --- UI Elements ---
+  const alphaEl=document.getElementById("alpha"), alphaVal=document.getElementById("alphaVal");
+  const etaDetEl=document.getElementById("etaDet"), etaDetVal=document.getElementById("etaDetVal");
+  const fRepEl=document.getElementById("fRep"), fRepVal=document.getElementById("fRepVal");
+  const darkRateEl=document.getElementById("darkRate"), darkRateVal=document.getElementById("darkRateVal");
+  const eChanEl=document.getElementById("eChan"), eChanVal=document.getElementById("eChanVal");
+  const basisSiftEl=document.getElementById("basisSift"), basisSiftVal=document.getElementById("basisSiftVal");
+  const emissionProbEl=document.getElementById("emissionProb"), emissionProbVal=document.getElementById("emissionProbVal");
+  const maxDistEl=document.getElementById("maxDist"), maxDistVal=document.getElementById("maxDistVal");
+  const stepEl=document.getElementById("step"), stepVal=document.getElementById("stepVal");
+  const showTFEl=document.getElementById("showTF"), directOnlyEl=document.getElementById("directOnly");
+  const repeatersDiv=document.getElementById("repeaters");
+
+  function renderRepeaters() {
+    repeatersDiv.innerHTML="";
+    for(let r=0;r<=8;r++){
+      const btn=document.createElement("button");
+      btn.textContent=r;
+      if((showDirectOnly?[0]:repeaterCounts).includes(r)) btn.classList.add("active");
+      btn.onclick=()=>{
+        if(showDirectOnly) return;
+        if(repeaterCounts.includes(r)) repeaterCounts=repeaterCounts.filter(x=>x!==r);
+        else repeaterCounts.push(r);
+        repeaterCounts.sort((a,b)=>a-b);
+        renderRepeaters(); updateChart();
+      }
+      repeatersDiv.appendChild(btn);
+    }
+  }
+
+  // --- ApexCharts ---
+  const options={
+    chart:{type:'line', animations:{enabled:true, easing:'easeinout', speed:800}, height:400, toolbar:{show:true}},
+    series:[],
+    xaxis:{title:{text:'Distance (km)'}},
+    yaxis:{type:'logarithmic', title:{text:'Secure key rate (Hz)'}},
+    stroke:{curve:'smooth'},
+    legend:{position:'top'}
+  };
+  const chart=new ApexCharts(document.querySelector("#qkdChart"), options);
+  chart.render();
+
+  function updateChart(){
+    alphaVal.textContent=alpha.toFixed(3);
+    etaDetVal.textContent=etaDet.toFixed(2);
+    fRepVal.textContent=fmtHz(fRep);
+    darkRateVal.textContent=Math.round(darkRate);
+    eChanVal.textContent=eChan.toFixed(3);
+    basisSiftVal.textContent=basisSift.toFixed(2);
+    emissionProbVal.textContent=emissionProb.toFixed(2);
+    maxDistVal.textContent=maxDist;
+    stepVal.textContent=step;
+
+    const distances=[];
+    for(let d=0;d<=maxDist+1e-9;d+=step) distances.push(Number(d.toFixed(6)));
+
+    const counts=showDirectOnly?[0]:repeaterCounts;
+    const series=[];
+    counts.forEach((r,idx)=>{
+      const data=distances.map(L=>{
+        const segLen=L/(r+1);
+        const {R_secure}=secureRepeaterSingleLink({L_km:segLen, alpha_db_per_km:alpha, eta_det:etaDet, f_rep:fRep, dark_count_rate:darkRate, e_channel:eChan, emission_prob:emissionProb, basis_sift_factor:basisSift});
+        return R_secure;
+      });
+      series.push({name:r+" repeaters", data:data, color:colorPalette[idx%colorPalette.length]});
+    });
+
+    if(showTF){
+      const tfData=distances.map(L=>tfQKDRate({L_km:L, alpha_db_per_km:alpha, f_rep:fRep, eta_det:etaDet, basis_sift_factor:basisSift}));
+      series.push({name:"Twin-Field (illustrative)", data:tfData, color:colorPalette[5], stroke:{dashArray:5}});
+    }
+
+    chart.updateOptions({xaxis:{categories:distances}});
+    chart.updateSeries(series);
+  }
+
+  // --- Event listeners ---
+  alphaEl.oninput=e=>{alpha=parseFloat(e.target.value); updateChart();}
+  etaDetEl.oninput=e=>{etaDet=parseFloat(e.target.value); updateChart();}
+  fRepEl.oninput=e=>{fRep=parseFloat(e.target.value); updateChart();}
+  darkRateEl.oninput=e=>{darkRate=parseFloat(e.target.value); updateChart();}
+  eChanEl.oninput=e=>{eChan=parseFloat(e.target.value); updateChart();}
+  basisSiftEl.oninput=e=>{basisSift=parseFloat(e.target.value); updateChart();}
+  emissionProbEl.oninput=e=>{emissionProb=parseFloat(e.target.value); updateChart();}
+  maxDistEl.oninput=e=>{maxDist=parseFloat(e.target.value); updateChart();}
+  stepEl.oninput=e=>{step=parseFloat(e.target.value); updateChart();}
+  showTFEl.onchange=e=>{showTF=e.target.checked; updateChart();}
+  directOnlyEl.onchange=e=>{showDirectOnly=e.target.checked; renderRepeaters(); updateChart();}
+
+  renderRepeaters(); updateChart();
+</script>
+
+</body>
+</html>

@@ -1,7 +1,7 @@
 // frontend/static/js/api.js
 // Helper functions for calling backend experiment endpoints
 
-const BACKEND_URL = "https://ql215-production.up.railway.app/"; // Set to "" for same-origin, or override as needed
+const BACKEND_URL = "https://ql215-production.up.railway.app"; // Set to "" for same-origin, or override as needed
 
 async function runExp1(data) {
     const res = await fetch(`${BACKEND_URL}/run/exp1`, {

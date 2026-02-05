@@ -12,7 +12,7 @@ if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
 import time
-from flask import Flask, jsonify, render_template, request, session
+from flask import Flask, jsonify, request, session
 from dotenv import load_dotenv
 
 # Robust imports that work in both deployment scenarios
@@ -31,7 +31,7 @@ except ImportError:
 # Load environment variables from .env file
 load_dotenv()
 
-app = Flask(__name__, static_folder="../frontend/static", template_folder="../frontend")
+app = Flask(__name__)
 # Configure caching based on environment
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 3600 if os.getenv('FLASK_ENV') == 'production' else 0
 # Use environment variable for secret key, fallback for development only
@@ -54,16 +54,6 @@ def health():
         "service": "QKD backend",
         "message": "Backend is running"
     }
-@app.route("/keyrate")
-def keyrate():
-    return render_template("keyrate.html")
-
-@app.route("/KeyrateVsDistance")
-def KeyrateVsDistance():
-    return render_template("KeyrateVsDistance.html")
-@app.route("/QuantumVsClassicalSimulator")
-def QuantumVsClassicalSimulator():
-    return render_template("QuantumVsClassicalSimulator.html")
 
 # ---- Experiment routes ----
 @app.route("/run/exp1", methods=["POST"])

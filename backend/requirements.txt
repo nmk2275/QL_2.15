@@ -1,16 +1,16 @@
 # Web Framework
-Flask>=2.3.0,<3.0.0
+Flask>=2.3.0
 
 # Scientific Computing
-numpy>=1.24.0,<2.0.0
+numpy>=1.24.0
 
 # Visualization
-matplotlib>=3.7.0,<4.0.0
+matplotlib>=3.7.0
 
 # Quantum Computing Framework
-qiskit>=0.45.0,<1.0.0
-qiskit-aer>=0.13.0,<1.0.0
-qiskit-ibm-runtime>=0.20.0,<1.0.0
+qiskit>=0.45.0
+qiskit-aer>=0.13.0
+qiskit-ibm-runtime>=0.20.0
 
 # Additional dependencies (required by qiskit packages)
 scipy>=1.10.0
@@ -20,10 +20,14 @@ pylatexenc>=2.10
 stevedore>=3.5.0
 
 # Production WSGI Server
-gunicorn>=21.2.0,<22.0.0
+gunicorn>=21.2.0
 
 # Environment variable management
-python-dotenv>=1.0.0,<2.0.0
+python-dotenv>=1.0.0
 
 # Required for qiskit-ibm-runtime (provides pkg_resources)
 setuptools>=65.0.0
+
+# Additional dependencies for Render deployment
+Werkzeug>=2.3.0
+Jinja2>=3.1.0

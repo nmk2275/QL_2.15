@@ -12,7 +12,7 @@ if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
 import time
-from flask import Flask, jsonify, request, session
+from flask import Flask, jsonify, request, session, render_template, send_from_directory
 from dotenv import load_dotenv
 
 # Robust imports that work in both deployment scenarios
@@ -31,7 +31,11 @@ except ImportError:
 # Load environment variables from .env file
 load_dotenv()
 
-app = Flask(__name__)
+frontend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'frontend'))
+app = Flask(__name__, 
+            template_folder=frontend_dir,
+            static_folder=os.path.join(frontend_dir, 'static'),
+            static_url_path='/static')
 # Configure caching based on environment
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 3600 if os.getenv('FLASK_ENV') == 'production' else 0
 # Use environment variable for secret key, fallback for development only
@@ -48,6 +52,10 @@ cli_instance = QKDCLI()
 
 # ---- Serve index.html at root ----
 @app.route("/")
+def index():
+    return render_template("index.html")
+
+@app.route("/health")
 def health():
     return {
         "status": "ok",
@@ -55,12 +63,23 @@ def health():
         "message": "Backend is running"
     }
 
+@app.route("/<path:filename>")
+def serve_html(filename):
+    if filename.endswith('.html'):
+        return render_template(filename)
+    return send_from_directory(frontend_dir, filename)
+
 # ---- Experiment routes ----
-@app.route("/run/exp1", methods=["POST"])
+@app.route("/run/exp1", methods=["GET", "POST"])
 def exp1_route():
     global last_exp1_result
-    data = request.get_json()
-    message = data.get("message") if data else None
+    if request.method == "POST":
+        data = request.get_json()
+        message = data.get("message") if data else None
+    else:
+        message = None
+        data = {}
+    
     if message is None:
         # Run experiment, store result (no message yet)
         backend_type = data.get('backend', 'local')
@@ -78,11 +97,16 @@ def exp1_route():
         # Otherwise, just return the last result
         return jsonify(last_exp1_result)
 
-@app.route("/run/exp2", methods=["POST"])
+@app.route("/run/exp2", methods=["GET", "POST"])
 def exp2_route():
     global last_exp2_result
-    data = request.get_json()
-    message = data.get("message") if data else None
+    if request.method == "POST":
+        data = request.get_json()
+        message = data.get("message") if data else None
+    else:
+        message = None
+        data = {}
+        
     if message is None:
         backend_type = data.get('backend', 'local')
         # Get API token from session if using IBM backend
@@ -205,6 +229,14 @@ def token_status():
                 "error": "Saved token is invalid"
             })
     return jsonify({"has_token": False, "valid": False})
+
+@app.route("/run/<exp_name>", methods=["POST"])
+def dynamic_exp_route(exp_name):
+    if exp_name == "exp1": return exp1_route()
+    if exp_name == "exp2": return exp2_route()
+    if exp_name == "exp3": return exp3_route()
+    if exp_name == "exp4": return exp4_route()
+    return jsonify({"error": "Unknown experiment"}), 404
 
 @app.route("/cli/command", methods=["POST"])
 def cli_command():

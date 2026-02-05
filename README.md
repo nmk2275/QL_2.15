@@ -53,7 +53,7 @@ Download or view the final secure key
 
 🧠 Backend Engine
 
-The qkd_backend/ module contains:
+The backend/ module contains:
 
 Core BB84 logic
 

@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>QKD CLI Terminal</title>
+  <style>
+    html, body {
+      height: 100%;
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      background: #000;
+      color: #b6ffb6;
+      font-family: Menlo, Consolas, Monaco, monospace;
+      font-size: 13px;
+      line-height: 1.35;
+      min-height: 100vh;
+      min-width: 100vw;
+      overflow: hidden;
+    }
+    body {
+      height: 100vh;
+      width: 100vw;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .terminal {
+      background: #000;
+      color: #b6ffb6;
+      border-radius: 0;
+      box-shadow: none;
+      padding: 0;
+      margin: 0;
+      width: 100vw;
+      height: 100vh;
+      min-height: 100vh;
+      min-width: 100vw;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+    }
+    .output {
+      flex: 1 1 auto;
+      min-height: 0;
+      max-height: none;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      font-family: inherit;
+      font-size: inherit;
+      line-height: inherit;
+      padding: 18px 0 0 0;
+      margin: 0;
+      background: transparent;
+      word-break: break-word;
+    }
+    .input-line {
+      display: flex;
+      align-items: center;
+      padding: 0 0 18px 0;
+      margin: 0;
+      background: transparent;
+      position: sticky;
+      bottom: 0;
+      z-index: 2;
+    }
+    .prompt {
+      color: #7fff7f;
+      font-weight: normal;
+      font-family: inherit;
+      font-size: inherit;
+      line-height: inherit;
+      margin: 0;
+      padding: 0 4px 0 18px;
+      min-width: 110px;
+      text-align: left;
+      user-select: none;
+      letter-spacing: 0;
+      display: inline-block;
+    }
+    .cli-input {
+      background: transparent;
+      color: #b6ffb6;
+      border: none;
+      outline: none;
+      font-family: inherit;
+      font-size: inherit;
+      line-height: inherit;
+      padding: 0;
+      margin: 0;
+      flex: 1;
+      min-width: 0;
+      caret-color: #7fff7f;
+      box-shadow: none;
+      border-radius: 0;
+      height: 1.35em;
+      position: relative;
+    }
+    .cli-input:focus {
+      outline: none;
+      border: none;
+      box-shadow: none;
+    }
+    /* Blinking cursor effect */
+    .cli-input::after {
+      content: '';
+      display: inline-block;
+      width: 8px;
+      height: 1.1em;
+      background: #b6ffb6;
+      margin-left: -2px;
+      vertical-align: middle;
+      animation: blink-cursor 1s steps(1) infinite;
+      position: absolute;
+      right: -8px;
+      top: 0;
+      pointer-events: none;
+    }
+    .cli-input:focus::after {
+      animation: blink-cursor 1s steps(1) infinite;
+    }
+    @keyframes blink-cursor {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0; }
+    }
+    /* Output color classes */
+    .term-error { color: #ff5c5c; }
+    .term-success, .term-info { color: #7fff7f; }
+    .term-prompt { color: #7fff7f; }
+    .term-output { color: #b6ffb6; }
+    /* Ensure help drawer and all children are copyable (fix selector to match actual ID) */
+    #helpDrawer, #helpDrawer *, #helpDrawer div, #helpDrawer div *, #helpDrawer ul, #helpDrawer ul *, #helpDrawer pre {
+      -webkit-user-select: text !important;
+      -moz-user-select: text !important;
+      -ms-user-select: text !important;
+      user-select: text !important;
+    }
+  </style>
+</head>
+<body>
+  <div class="terminal">
+    <!-- Font size controls and Help Button -->
+    <div style="position: absolute; top: 16px; right: 22px; z-index: 10; display: flex; gap: 8px; align-items: center;">
+      <button id="fontDecBtn" title="Decrease font size" style="background: #222; color: #b6ffb6; border: 1px solid #444; border-radius: 4px; font-size: 13px; padding: 2px 10px; cursor: pointer;">A-</button>
+      <button id="fontIncBtn" title="Increase font size" style="background: #222; color: #b6ffb6; border: 1px solid #444; border-radius: 4px; font-size: 13px; padding: 2px 10px; cursor: pointer;">A+</button>
+      <button id="clearBtn" title="Clear terminal" style="background: #222; color: #b6ffb6; border: 1px solid #444; border-radius: 4px; font-size: 13px; padding: 2px 14px; cursor: pointer;">Clear</button>
+      <button id="helpBtn" style="background: #222; color: #b6ffb6; border: 1px solid #444; border-radius: 4px; font-size: 12px; padding: 4px 14px; cursor: pointer;">Help</button>
+    </div>
+    <!-- Help Drawer -->
+    <div id="helpDrawer" style="position: fixed; top: 0; right: -420px; width: 400px; height: 100vh; background: #101214; color: #b6ffb6; box-shadow: -2px 0 16px #000a; z-index: 100; transition: right 0.28s cubic-bezier(.4,1.6,.6,1); display: flex; flex-direction: column; user-select: text !important;">
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 18px 18px 8px 18px; border-bottom: 1px solid #222; user-select: text !important;">
+        <span style="font-weight: bold; font-size: 1.1em; letter-spacing: 0.5px; user-select: text !important;">QKD CLI Help</span>
+        <button id="closeHelpBtn" style="background: none; color: #b6ffb6; border: none; font-size: 1.5em; cursor: pointer; user-select: text !important;">&times;</button>
+      </div>
+      <div style="flex: 1 1 auto; overflow-y: auto; padding: 16px 22px 22px 22px; font-size: 12.5px; user-select: text !important;">
+        <div style="margin-bottom: 12px; color: #7fff7f; font-weight: bold; user-select: text !important;">Supported Commands</div>
+        <ul style="padding-left: 18px; margin: 0 0 18px 0; user-select: text !important;">
+          <li><code>enable</code></li>
+          <li><code>configure terminal</code></li>
+          <li><code>create node &lt;name&gt; role &lt;transmitter|receiver&gt;</code></li>
+          <li><code>create link &lt;A&gt; &lt;B&gt;</code></li>
+          <li><code>set loss &lt;value&gt;</code></li>
+          <li><code>set channel-noise &lt;value&gt;</code></li>
+          <li><code>set dark-count &lt;value&gt;</code></li>
+          <li><code>sweep mode &lt;single|paired|combo&gt;</code></li>
+          <li><code>sweep parameter &lt;name&gt; &lt;start&gt; &lt;end&gt; step &lt;value&gt;</code></li>
+          <li><code>run bb84 [eve]</code></li>
+          <li><code>show system</code></li>
+          <li><code>show results summary</code></li>
+          <li><code>exit</code></li>
+        </ul>
+        <div style="color: #b6ffb6; font-weight: bold; margin-bottom: 6px; user-select: text !important;">Usage Examples</div>
+        <pre style="background: #181c1f; color: #b6ffb6; padding: 10px 12px; border-radius: 4px; font-size: 12px; overflow-x: auto; user-select: text !important;">
+enable
+configure terminal
+create node Alice role transmitter
+create node Bob role receiver
+create link Alice Bob
+set loss 0.1
+set channel-noise 0.02
+set dark-count 0.01
+sweep mode single
+sweep parameter loss 0.01 0.1 step 0.01
+run bb84
+run bb84 eve
+show system
+show results summary
+exit
+        </pre>
+      </div>
+    </div>
+    <div class="output" id="output"></div>
+    <div class="input-line">
+      <span class="prompt" id="prompt">QKD-Sim&gt; </span>
+      <input type="text" class="cli-input" id="cliInput" autocomplete="off" autofocus />
+      <button id="sendBtn">Send</button>
+    </div>
+  </div>
+  <script>
+    const outputDiv = document.getElementById('output');
+    const input = document.getElementById('cliInput');
+    const promptSpan = document.getElementById('prompt');
+    const sendBtn = document.getElementById('sendBtn');
+    let commandHistory = [];
+    let historyIndex = 0;
+    let isUserScrolledUp = false;
+
+    // Load previous output from localStorage
+    function loadScrollback() {
+      const saved = localStorage.getItem('qkd_cli_output');
+      if (saved) {
+        outputDiv.innerHTML = saved;
+      }
+    }
+    loadScrollback();
+
+    // Save output to localStorage
+    function saveScrollback() {
+      localStorage.setItem('qkd_cli_output', outputDiv.innerHTML);
+    }
+
+    // Scroll handling
+    function scrollToBottom(force=false) {
+      if (!isUserScrolledUp || force) {
+        outputDiv.scrollTop = outputDiv.scrollHeight;
+      }
+    }
+    outputDiv.addEventListener('scroll', function() {
+      // If user is near the bottom, auto-scroll; else, don't
+      const threshold = 20;
+      isUserScrolledUp = outputDiv.scrollTop + outputDiv.clientHeight < outputDiv.scrollHeight - threshold;
+    });
+
+    // Utility to escape HTML
+    function escapeHtml(text) {
+      return text.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    }
+    // Utility to classify output lines
+    function classifyLine(line) {
+      if (/error|invalid|unknown|fail/i.test(line)) return 'term-error';
+      if (/success|saved|done|set|created|completed|available|yes|info/i.test(line)) return 'term-success';
+      if (/prompt|qkd-sim[>#]/i.test(line)) return 'term-prompt';
+      return 'term-output';
+    }
+    function appendOutput(lines) {
+      if (Array.isArray(lines)) {
+        lines.forEach(line => {
+          const cls = classifyLine(line);
+          outputDiv.innerHTML += `<div class="${cls}">${escapeHtml(line)}</div>`;
+        });
+      } else {
+        const cls = classifyLine(lines);
+        outputDiv.innerHTML += `<div class="${cls}">${escapeHtml(lines)}</div>`;
+      }
+      saveScrollback();
+      scrollToBottom();
+    }
+
+    function sendCommand() {
+      const cmd = input.value.trim();
+      if (!cmd) return;
+      fetch('/cli/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ command: cmd })
+      })
+      .then(res => res.json())
+      .then ( data => {
+        appendOutput(data.output);
+        promptSpan.textContent = data.prompt;
+        commandHistory.push(cmd);
+        historyIndex = commandHistory.length;
+        input.value = '';
+      });
+    }
+
+    sendBtn.onclick = sendCommand;
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        sendCommand();
+        e.preventDefault();
+      }
+      if (e.key === 'Enter' && e.shiftKey) {
+        // Do nothing (no newline in input)
+        e.preventDefault();
+      }
+      if (e.key === 'ArrowUp') {
+        if (commandHistory.length && historyIndex > 0) {
+          historyIndex--;
+          input.value = commandHistory[historyIndex];
+        }
+        e.preventDefault();
+      }
+      if (e.key === 'ArrowDown') {
+        if (commandHistory.length && historyIndex < commandHistory.length - 1) {
+          historyIndex++;
+          input.value = commandHistory[historyIndex];
+        } else {
+          input.value = '';
+          historyIndex = commandHistory.length;
+        }
+        e.preventDefault();
+      }
+      // Prevent browser shortcuts (Ctrl/Cmd+R, Ctrl/Cmd+W, etc.)
+      if ((e.ctrlKey || e.metaKey) && ["r","w","n","t","p","s","o","f","l","/"].includes(e.key.toLowerCase())) {
+        e.preventDefault();
+      }
+    });
+    // Always keep focus on input
+    document.addEventListener('keydown', function(e) {
+      if (!['Escape'].includes(e.key)) {
+        if (document.activeElement !== input) input.focus();
+      }
+    });
+    input.focus();
+
+    // Help drawer logic
+    const helpBtn = document.getElementById('helpBtn');
+    const helpDrawer = document.getElementById('helpDrawer');
+    const closeHelpBtn = document.getElementById('closeHelpBtn');
+    helpBtn.onclick = function() {
+      helpDrawer.style.right = '0';
+    };
+    closeHelpBtn.onclick = function() {
+      helpDrawer.style.right = '-420px';
+    };
+    // Optional: close drawer with Escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') helpDrawer.style.right = '-420px';
+    });
+
+    // Font size controls
+    const fontDecBtn = document.getElementById('fontDecBtn');
+    const fontIncBtn = document.getElementById('fontIncBtn');
+    const terminal = document.querySelector('.terminal');
+    let fontSize = 13;
+    function setFontSize(size) {
+      fontSize = Math.max(10, Math.min(18, size));
+      terminal.style.fontSize = fontSize + 'px';
+      localStorage.setItem('qkd_cli_fontsize', fontSize);
+    }
+    // Load font size from localStorage
+    const savedFont = localStorage.getItem('qkd_cli_fontsize');
+    if (savedFont) setFontSize(Number(savedFont));
+    fontDecBtn.onclick = () => setFontSize(fontSize - 1);
+    fontIncBtn.onclick = () => setFontSize(fontSize + 1);
+    // Clear button logic
+    const clearBtn = document.getElementById('clearBtn');
+    clearBtn.onclick = function() {
+      outputDiv.innerHTML = '';
+      localStorage.removeItem('qkd_cli_output');
+      input.focus();
+    };
+  </script>
+</body>
+</html>

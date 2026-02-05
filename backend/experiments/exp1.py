@@ -6,10 +6,10 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import os
 
-from qkd_backend.backend_config import get_backend_service
-from qkd_backend.qrng import generate_qrng_bits
-from qkd_backend.cascade_error_correction import cascade_error_correction
-from qkd_backend.privacy_amplification import privacy_amplify
+from backend.backend_config import get_backend_service
+from backend.qrng import generate_qrng_bits
+from backend.cascade_error_correction import cascade_error_correction
+from backend.privacy_amplification import privacy_amplify
 
 try:
     from qiskit_ibm_runtime import SamplerV2 as Sampler
@@ -164,9 +164,13 @@ def run_exp1(message=None, backend_type="local", noise_mitigation=True, bit_num=
         if counts is None or not counts:
             raise RuntimeError("Failed to extract counts from sampler result. Try using AerSimulator or check qiskit version.")
 
-    os.makedirs("static", exist_ok=True)
-    fig = circuit_drawer(qc, output='mpl')
-    fig.savefig("static/circuit_exp1.png")
+    # Get absolute path to static folder (backend/static)
+    backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    static_dir = os.path.join(backend_dir, "static")
+    os.makedirs(static_dir, exist_ok=True)
+    circuit_path = os.path.join(static_dir, "circuit_exp1.png")
+    fig = circuit_drawer(qc, output='mpl', style='clifford')
+    fig.savefig(circuit_path)
     plt.close(fig)
 
     if not counts:

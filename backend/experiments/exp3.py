@@ -1,4 +1,4 @@
-# qkd_backend/qkd_runner/exp3.py
+# backend/qkd_runner/exp3.py
 # BB84 with Eve intercept-resend, executed on IBM Quantum backend using SamplerV2.
 
 import numpy as np
@@ -31,8 +31,8 @@ except Exception:
 import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from qkd_backend.backend_config import get_backend_service
-from qkd_backend.qrng import generate_qrng_bits
+from backend.backend_config import get_backend_service
+from backend.qrng import generate_qrng_bits
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 import os
 from qiskit.visualization import circuit_drawer
@@ -58,8 +58,8 @@ def extract_bitstring(counts, n):
     bitstring = max(counts, key=counts.get)
     return bitstring.zfill(n)
 
-def run_exp3(message=None, bit_num=20, backend_type="local", api_token=None):
-    shots = 1  # BB84 IS SINGLE-SHOT
+def run_exp3(message=None, bit_num=20, backend_type="local", api_token=None, shots=1024):
+    # Use multiple shots for counts visualization, but extract single bitstring for protocol
     rng = np.random.default_rng()
 
     # Generate random bits: use QRNG if IBM backend, otherwise NumPy
@@ -107,9 +107,10 @@ def run_exp3(message=None, bit_num=20, backend_type="local", api_token=None):
     counts = None
     if hasattr(result, "quasi_dists"):
         counts = {}
+        bit_num_circuit = qc_isa.num_qubits
         for dist in result.quasi_dists:
             for k, v in dist.items():
-                counts[format(k, f"0{bit_num}b")] = v
+                counts[format(k, f"0{bit_num_circuit}b")] = v
             break
     if counts is None or not counts:
         try:
@@ -165,9 +166,10 @@ def run_exp3(message=None, bit_num=20, backend_type="local", api_token=None):
     counts2 = None
     if hasattr(result2, "quasi_dists"):
         counts2 = {}
+        bit_num_circuit2 = qc2_isa.num_qubits
         for dist in result2.quasi_dists:
             for k, v in dist.items():
-                counts2[format(k, f"0{bit_num}b")] = v
+                counts2[format(k, f"0{bit_num_circuit2}b")] = v
             break
     if counts2 is None or not counts2:
         try:
@@ -236,8 +238,8 @@ def run_exp3(message=None, bit_num=20, backend_type="local", api_token=None):
             "Secret key cannot be distilled."
         )
 
-    # --- Remove invalid Bloch visualization ---
-    diagram = None
+    # --- Circuit diagram URL ---
+    circuit_diagram_url = "/static/circuit_exp3.png"
 
     # --- Return results ---
     return {
@@ -260,5 +262,5 @@ def run_exp3(message=None, bit_num=20, backend_type="local", api_token=None):
         "qber": qber,
         "loss": loss,
         "abort_reason": abort_reason,
-        "diagram": diagram,
+        "circuit_diagram_url": circuit_diagram_url,
     }

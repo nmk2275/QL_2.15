@@ -1,17 +1,18 @@
-import os
 import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 import time
 from flask import Flask, jsonify, render_template, request, session
-# Add backend directory to sys.path for local imports
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from experiments import exp1, exp2, exp3, exp4
-from qkd_backend.backend_config import get_backend_service, validate_ibm_token
+from backend.experiments import exp1, exp2, exp3, exp4
+from backend.backend_config import get_backend_service, validate_ibm_token
 from dotenv import load_dotenv
+from backend.qkd_cli_core import QKDCLI
 
 # Load environment variables from .env file
 load_dotenv()
 
-app = Flask(__name__, static_folder="static", template_folder="../frontend")
+app = Flask(__name__, static_folder="../frontend/static", template_folder="../frontend")
 # Configure caching based on environment
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 3600 if os.getenv('FLASK_ENV') == 'production' else 0
 # Use environment variable for secret key, fallback for development only
@@ -24,11 +25,12 @@ last_exp4_result = {}
 # Store experiment results for state management
 experiment_states = {}
 last_circuit = {}
+cli_instance = QKDCLI()
 
 # ---- Serve index.html at root ----
 @app.route("/")
 def home():
-    return render_template("index.html", static_version=int(time.time()))  # Looks in templates/index.html
+    return render_template("index.html", static_version=int(time.time()))  # Looks in frontend/index.html
 
 @app.route("/keyrate")
 def keyrate():
@@ -48,15 +50,20 @@ def exp1_route():
     data = request.get_json()
     message = data.get("message") if data else None
     if message is None:
+        # Run experiment, store result (no message yet)
         backend_type = data.get('backend', 'local')
+        # Get API token from session if using IBM backend
         api_token = session.get('ibm_api_token') if backend_type == 'ibm' else None
+        # Use the actual exp1 experiment
         result = exp1.run_exp1(backend_type=backend_type, api_token=api_token)
-        result["circuit_diagram_url"] = "/static/circuit_exp1.png"
         last_exp1_result = result
         return jsonify(result)
     else:
+        # Use previous key to encrypt/decrypt
         if not last_exp1_result:
             return jsonify({"error": "Run the experiment first!"}), 400
+        # If you have a separate encryption function in exp1, use it here
+        # Otherwise, just return the last result
         return jsonify(last_exp1_result)
 
 @app.route("/run/exp2", methods=["POST"])
@@ -66,9 +73,9 @@ def exp2_route():
     message = data.get("message") if data else None
     if message is None:
         backend_type = data.get('backend', 'local')
+        # Get API token from session if using IBM backend
         api_token = session.get('ibm_api_token') if backend_type == 'ibm' else None
         result = exp2.run_exp2(backend_type=backend_type, api_token=api_token)
-        result["circuit_diagram_url"] = "/static/circuit_exp2.png"
         last_exp2_result = result
         return jsonify(result)
     else:
@@ -81,28 +88,22 @@ def exp2_route():
 def exp3_route():
     data = request.get_json()
     backend_type = data.get('backend', 'local') if data else 'local'
+    # Get API token from session if using IBM backend
     api_token = session.get('ibm_api_token') if backend_type == 'ibm' else None
     result = exp3.run_exp3(backend_type=backend_type, api_token=api_token)
-    result["circuit_diagram_url"] = "/static/circuit_exp3.png"
     return jsonify(result)
 
 @app.route("/run/exp4", methods=["POST"])
 def exp4_route():
     data = request.get_json()
     backend_type = data.get('backend', 'local') if data else 'local'
+    # Get API token from session if using IBM backend
     api_token = session.get('ibm_api_token') if backend_type == 'ibm' else None
     result = exp4.run_exp4(backend_type=backend_type, api_token=api_token)
-    result["circuit_diagram_url"] = "/static/circuit_exp4.png"
     return jsonify(result)
-@app.route("/run/<exp>", methods=["POST"])
-def run_exp(exp):
-    pass  # Placeholder route to be removed
-    # After getting the result:
-    global last_circuit
-    last_circuit = result
-    return jsonify(result)
+# Removed placeholder route - use specific exp1/exp2/exp3/exp4 routes instead
 
-@app.route("/circut")
+@app.route("/circuit")
 def circuit():
     return render_template("circuit.html")
 @app.route("/shors")
@@ -192,6 +193,20 @@ def token_status():
                 "error": "Saved token is invalid"
             })
     return jsonify({"has_token": False, "valid": False})
+
+@app.route("/cli/command", methods=["POST"])
+def cli_command():
+    data = request.get_json()
+    command = data.get("command", "")
+    output = cli_instance.process_command(command)
+    return jsonify({
+        "prompt": cli_instance.get_prompt(),
+        "output": output
+    })
+
+@app.route("/web-cli")
+def web_cli():
+    return render_template("web_cli.html")
 
 if __name__ == "__main__":
     port = int(os.getenv('PORT', 5504))

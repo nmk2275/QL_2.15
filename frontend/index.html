@@ -241,6 +241,7 @@ h2{margin-top:0}
        </div>
      </div>
      <button id="showCircuitBtn" class="btn secondary" style="margin-left:12px;">🔬 Circuit</button>
+     <button id="cliModeBtn" class="btn secondary" style="margin-left:8px;">🖥️ CLI mode</button>
    </div>
   </div>
 
@@ -273,6 +274,9 @@ h2{margin-top:0}
         </div>
 
         <pre id="output" style="margin-top:12px; background:rgba(0,0,0,0.4); padding:10px; border-radius:8px; color:#bfe8ff; max-height:250px; overflow:auto;"></pre>
+
+        <!-- Container for Sender qubit pickers -->
+        <div id="SenderPickers"></div>
       </div>
 
       
@@ -289,44 +293,6 @@ h2{margin-top:0}
   </div>
 </div>
       
-
-<!-- IBM API Token Modal -->
-<div id="ibmTokenModal" class="modal-back" role="dialog" aria-hidden="true" style="display:none;">
-  <div class="modal" style="max-width:500px;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
-      <h2 style="margin:0;color:var(--accent1);">IBM Quantum API Token</h2>
-      <button id="closeTokenModalBtn" class="btn secondary" style="font-size:1.2em;background:transparent;border:1px solid rgba(255,75,75,0.12);color:var(--accent1);padding:4px 10px;">✖</button>
-    </div>
-    <div id="tokenModalContent">
-      <p style="color:var(--muted);margin-bottom:16px;font-size:14px;">
-        Enter your IBM Quantum API token to use real quantum hardware. 
-        Your token will be stored securely in this session.
-      </p>
-      <div style="margin-bottom:16px;">
-        <label style="display:block;margin-bottom:8px;font-weight:600;color:var(--text);">API Token:</label>
-        <input type="password" id="ibmTokenInput" placeholder="Enter your IBM Quantum API token" 
-               style="width:100%;padding:10px 12px;background:rgba(255,255,255,0.07);color:var(--text);border:1px solid rgba(255,255,255,0.1);border-radius:8px;font-size:14px;font-family:monospace;"
-               autocomplete="off" />
-        <div id="tokenError" style="margin-top:8px;color:var(--danger);font-size:13px;display:none;"></div>
-        <div id="tokenSuccess" style="margin-top:8px;color:#10b981;font-size:13px;display:none;"></div>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button id="validateTokenBtn" class="btn" style="flex:1;min-width:120px;">Validate & Save</button>
-        <button id="changeTokenBtn" class="btn secondary" style="flex:1;min-width:120px;display:none;">Change Token</button>
-        <button id="deleteTokenBtn" class="btn secondary" style="flex:1;min-width:120px;display:none;">Delete Token</button>
-      </div>
-      <div id="tokenStatus" style="margin-top:16px;padding:12px;background:rgba(16,185,129,0.1);border-radius:8px;border:1px solid rgba(16,185,129,0.2);display:none;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="color:#10b981;">✓</span>
-          <div>
-            <div style="font-weight:600;color:#10b981;">Token Saved</div>
-            <div id="tokenBackendName" style="font-size:13px;color:var(--muted);margin-top:4px;"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
 
 <!-- IBM API Token Modal -->
 <div id="ibmTokenModal" class="modal-back" role="dialog" aria-hidden="true" style="display:none;">
@@ -609,7 +575,8 @@ function isNodeNearPath(node, pathEl){
    Sender UI: pickers
    ------------------------- */
 function buildSenderPickers(){
-  const n = parseInt($('numQ').value,10);
+  const numQEl = $('numQ');
+  const n = numQEl ? parseInt(numQEl.value,10) || 0 : 0;
   SenderBits = new Array(n).fill(0);
   SenderBases = new Array(n).fill('+');
   perPhotonEve = new Array(n).fill(null);
@@ -629,12 +596,32 @@ function buildSenderPickers(){
   /* $('encryptBtn').disabled = true; */
   $('SenderNote').innerText = 'Prepared — set bits & bases or Randomize.';
 }
-$('prepareBtn').addEventListener('click', buildSenderPickers);
-$('numQ').addEventListener('change', buildSenderPickers);
-$('randBtn').addEventListener('click', ()=>{
-  buildSenderPickers();
-  const n = parseInt($('numQ').value,10);
-  for (let i=0;i<n;i++){ $('abit-'+i).value = randBit(); $('abase-'+i).value = randBasis(); }
+
+// Wire up controls defensively (they may not exist in some builds)
+document.addEventListener('DOMContentLoaded', () => {
+  const prepareBtnEl = $('prepareBtn');
+  if (prepareBtnEl) {
+    prepareBtnEl.addEventListener('click', buildSenderPickers);
+  }
+
+  const numQEl = $('numQ');
+  if (numQEl) {
+    numQEl.addEventListener('change', buildSenderPickers);
+  }
+
+  const randBtnEl = $('randBtn');
+  if (randBtnEl && numQEl) {
+    randBtnEl.addEventListener('click', () => {
+      buildSenderPickers();
+      const n = parseInt(numQEl.value,10) || 0;
+      for (let i=0;i<n;i++){
+        const bitSel = $('abit-'+i);
+        const basisSel = $('abase-'+i);
+        if (bitSel) bitSel.value = randBit();
+        if (basisSel) basisSel.value = randBasis();
+      }
+    });
+  }
 });
 function renderCircuitPanel() {
   const data = window.lastExpData || {};
@@ -674,15 +661,22 @@ function renderCircuitPanel() {
 /* -------------------------
    Send photons (animated along path)
    ------------------------- */
-$('sendBtn').addEventListener('click', ()=>{
+const sendBtnEl = $('sendBtn');
+if (sendBtnEl) sendBtnEl.addEventListener('click', ()=>{
   const Sender = nodes.find(n=>n.type==='Sender'), Receiver = nodes.find(n=>n.type==='Receiver');
   if (!Sender || !Receiver){ alert('Place Sender and Receiver on the canvas'); return; }
   const route = findRoute(Sender, Receiver);
   if (!route){ alert('Connect Sender and Receiver using Fiber (or connect via Eve)'); return; }
   // read inputs
-  const n = parseInt($('numQ').value,10);
+  const numQEl = $('numQ');
+  const n = numQEl ? parseInt(numQEl.value,10) || 0 : 0;
   SenderBits = new Array(n); SenderBases = new Array(n);
-  for (let i=0;i<n;i++){ SenderBits[i] = parseInt($('abit-'+i).value,10); SenderBases[i] = $('abase-'+i).value; }
+  for (let i=0;i<n;i++){
+    const bitSel = $('abit-'+i);
+    const basisSel = $('abase-'+i);
+    SenderBits[i] = bitSel ? parseInt(bitSel.value,10) || 0 : 0;
+    SenderBases[i] = basisSel ? basisSel.value : '+';
+  }
   ReceiverChoices = new Array(n).fill(null); ReceiverResults = new Array(n).fill(null); perPhotonEve = new Array(n).fill(null);
   photonsInFlight = n;
   $('ReceiverArea').innerHTML=''; $('cipherBox').style.display='none'; $('sharedKeyBox').innerHTML=''; $('mismatchInfo').innerText='';
@@ -856,7 +850,8 @@ function userMeasure(index, basis){
 /* -------------------------
    Sift & Key derivation
    ------------------------- */
-$('siftBtn').addEventListener('click', async ()=>{
+const siftBtnEl = $('siftBtn');
+if (siftBtnEl) siftBtnEl.addEventListener('click', async ()=>{
   if (!SenderBits.length){ alert('No qubits sent yet'); return; }
   if (ReceiverChoices.some(v=> v===null)){ alert('Please measure all qubits before sifting'); return; }
   const keyBits = [], mismatches = [];
@@ -969,11 +964,14 @@ window.userMeasure = userMeasure;
 <script>
 function getSenderBitsBases() {
   // Returns { bits: [...], bases: [...] }
-  const n = parseInt(document.getElementById('numQ').value, 10);
+  const numQEl = document.getElementById('numQ');
+  const n = numQEl ? parseInt(numQEl.value, 10) || 0 : 0;
   let bits = [], bases = [];
   for (let i = 0; i < n; i++) {
-    bits.push(parseInt(document.getElementById('abit-' + i).value, 10));
-    bases.push(document.getElementById('abase-' + i).value);
+    const bitEl = document.getElementById('abit-' + i);
+    const basisEl = document.getElementById('abase-' + i);
+    bits.push(bitEl ? parseInt(bitEl.value, 10) || 0 : 0);
+    bases.push(basisEl ? basisEl.value : '+');
   }
   return { bits, bases };
 }
@@ -1513,7 +1511,7 @@ function renderHistogram(counts, targetId = 'histogram', width = 400, height = 3
 </div>  -
 <div id="cryptoOutput" style="margin:10px 0 0 0; color:#bfe8ff;"></div> -->
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
-<script src="{{ url_for('static', filename='enhanced-qkd.js') }}"></script>
+<script src="static/js/enhanced-qkd.js"></script>
 <script>
   // ...all your JavaScript code...
   document.getElementById('showCircuitBtn').onclick = function() {
@@ -1522,6 +1520,9 @@ function renderHistogram(counts, targetId = 'histogram', width = 400, height = 3
 };
 document.getElementById('closeCircuitBtn').onclick = function() {
   document.getElementById('circuit').style.display = 'none';
+};
+document.getElementById('cliModeBtn').onclick = function() {
+  window.location.href = '/web-cli';
 };
 </script>
 <div id="histogramModal" class="modal-back" style="display:none;align-items:center;justify-content:center;z-index:10000;">
@@ -1534,17 +1535,13 @@ document.getElementById('closeCircuitBtn').onclick = function() {
   </div>
 </div>
 <script>
-// Helper to check if Eve is present
 function isEvePresent() {
   return (typeof nodes !== 'undefined') && nodes.some(n => n.type === 'eve');
 }
-
-// Show/hide message encryption block based on experiment type and Eve presence
 function updateMessageInputBlock(expType, show) {
   const block = document.getElementById('messageInputBlock');
   block.style.display = (show && (expType === 'exp1' || expType === 'exp2') && !isEvePresent()) ? '' : 'none';
 }
-
 // Hide by default
 updateMessageInputBlock(window.lastExpType, false);
 // Hide when running experiment

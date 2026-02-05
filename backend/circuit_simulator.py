@@ -1,4 +1,4 @@
-# qkd_backend/qkd_runner/circuit_simulator.py
+# backend/qkd_runner/circuit_simulator.py
 import random
 import numpy as np
 from qiskit import QuantumCircuit

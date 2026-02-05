@@ -7,10 +7,10 @@ import matplotlib.pyplot as plt
 import os
 
 # Robust imports for deployment compatibility
-from backend.backend_config import get_backend_service
-from backend.qrng import generate_qrng_bits
-from backend.cascade_error_correction import cascade_error_correction
-from backend.privacy_amplification import privacy_amplify
+from backend_config import get_backend_service
+from qrng import generate_qrng_bits
+from cascade_error_correction import cascade_error_correction
+from privacy_amplification import privacy_amplify
 try:
     from qiskit_ibm_runtime import SamplerV2 as Sampler
 except ImportError:

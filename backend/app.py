@@ -1,13 +1,25 @@
 import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# Add parent directory to path for imports (works both locally and in deployment)
+parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if parent_dir not in sys.path:
+    sys.path.insert(0, parent_dir)
 
 import time
 from flask import Flask, jsonify, render_template, request, session
-from backend.experiments import exp1, exp2, exp3, exp4
-from backend.backend_config import get_backend_service, validate_ibm_token
 from dotenv import load_dotenv
-from backend.qkd_cli_core import QKDCLI
+
+# Import experiments - try absolute import first, fallback to relative
+try:
+    from backend.experiments import exp1, exp2, exp3, exp4
+    from backend.backend_config import get_backend_service, validate_ibm_token
+    from backend.qkd_cli_core import QKDCLI
+except ImportError:
+    # If running from backend directory, use direct imports
+    from experiments import exp1, exp2, exp3, exp4
+    from backend_config import get_backend_service, validate_ibm_token
+    from qkd_cli_core import QKDCLI
 
 # Load environment variables from .env file
 load_dotenv()

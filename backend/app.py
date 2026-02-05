@@ -48,9 +48,12 @@ cli_instance = QKDCLI()
 
 # ---- Serve index.html at root ----
 @app.route("/")
-def home():
-    return render_template("index.html", static_version=int(time.time()))  # Looks in frontend/index.html
-
+def health():
+    return {
+        "status": "ok",
+        "service": "QKD backend",
+        "message": "Backend is running"
+    }
 @app.route("/keyrate")
 def keyrate():
     return render_template("keyrate.html")

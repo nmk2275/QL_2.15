@@ -6,17 +6,24 @@ parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
+# Also add current directory to path (for Railway deployment where backend/ is at root)
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+
 import time
 from flask import Flask, jsonify, render_template, request, session
 from dotenv import load_dotenv
 
-# Import experiments - try absolute import first, fallback to relative
+# Robust imports that work in both deployment scenarios
+# Scenario 1: Running from project root (backend/backend/experiments/)
+# Scenario 2: Running from backend directory or when backend/ is at root (experiments/)
 try:
     from backend.experiments import exp1, exp2, exp3, exp4
     from backend.backend_config import get_backend_service, validate_ibm_token
     from backend.qkd_cli_core import QKDCLI
 except ImportError:
-    # If running from backend directory, use direct imports
+    # Fallback: direct imports when backend/ is at root or we're in backend directory
     from experiments import exp1, exp2, exp3, exp4
     from backend_config import get_backend_service, validate_ibm_token
     from qkd_cli_core import QKDCLI

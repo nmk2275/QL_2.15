@@ -2,8 +2,15 @@
 import random
 import numpy as np
 import os
-from backend.backend_config import get_backend_service
-from backend.qrng import generate_qrng_bits
+
+# Robust imports for deployment compatibility
+try:
+    from backend.backend_config import get_backend_service
+    from backend.qrng import generate_qrng_bits
+except ImportError:
+    # Fallback for when backend/ is at root or we're in backend directory
+    from backend_config import get_backend_service
+    from qrng import generate_qrng_bits
 try:
     from qiskit_ibm_runtime import SamplerV2 as Sampler
 except Exception:

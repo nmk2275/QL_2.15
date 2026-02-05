@@ -242,7 +242,7 @@ def dynamic_exp_route(exp_name):
 def cli_command():
     data = request.get_json()
     command = data.get("command", "")
-    output = cli_instance.process_command(command)
+    output = cli_instance.execute(command)
     return jsonify({
         "prompt": cli_instance.get_prompt(),
         "output": output
@@ -253,5 +253,6 @@ def web_cli():
     return render_template("web_cli.html")
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
+    port = int(os.getenv('PORT', 5504))
+    debug = os.getenv('FLASK_ENV') != 'production'
+    app.run(host="0.0.0.0", port=port, debug=debug)

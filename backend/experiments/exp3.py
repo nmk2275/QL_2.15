@@ -33,13 +33,8 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Robust imports for deployment compatibility
-try:
-    from backend.backend_config import get_backend_service
-    from backend.qrng import generate_qrng_bits
-except ImportError:
-    # Fallback for when backend/ is at root or we're in backend directory
-    from backend_config import get_backend_service
-    from qrng import generate_qrng_bits
+from backend_config import get_backend_service
+from qrng import generate_qrng_bits
 from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
 import os
 from qiskit.visualization import circuit_drawer

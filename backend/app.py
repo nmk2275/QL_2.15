@@ -19,9 +19,9 @@ from dotenv import load_dotenv
 # Scenario 1: Running from project root (backend/backend/experiments/)
 # Scenario 2: Running from backend directory or when backend/ is at root (experiments/)
 try:
-    from backend.experiments import exp1, exp2, exp3, exp4
-    from backend.backend_config import get_backend_service, validate_ibm_token
-    from backend.qkd_cli_core import QKDCLI
+    from experiments import exp1, exp2, exp3, exp4
+    from backend_config import get_backend_service, validate_ibm_token
+    from qkd_cli_core import QKDCLI
 except ImportError:
     # Fallback: direct imports when backend/ is at root or we're in backend directory
     from experiments import exp1, exp2, exp3, exp4

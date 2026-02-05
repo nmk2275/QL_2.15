@@ -228,6 +228,5 @@ def web_cli():
     return render_template("web_cli.html")
 
 if __name__ == "__main__":
-    port = int(os.getenv('PORT', 5504))
-    debug = os.getenv('FLASK_ENV') != 'production'
-    app.run(host="0.0.0.0", port=port, debug=debug)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)

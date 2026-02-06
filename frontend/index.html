@@ -233,10 +233,9 @@ h2{margin-top:0}
        <button class="features-btn">Features</button>
        <div class="dropdown-content">
          <a href="https://simulation-89hn39oimedaemad9brkbr.streamlit.app/">Basic Simulation</a>
-         <a href="/keyrate">Extended QKD</a>
-         <a href="/KeyrateVsDistance">Keyrate vs Distance</a>
+         <a href="https://extendedqkd-seugogxdxdvvtntacxja5h.streamlit.app/">Extended QKD</a>
+         <a href="https://keyrate-vs-distancegit-3vpsqftuxwfl93mcddetsq.streamlit.app/">Keyrate vs Distance</a>
          <a href="https://multiuser.streamlit.app/">Multi user</a>
-         <a href="/QuantumVsClassicalSimulator">Quantum vs Classical Simulator</a>
          <a href="/shors">Shor's Algorithm</a>
        </div>
      </div>
@@ -259,6 +258,7 @@ h2{margin-top:0}
         <div style="display:flex; gap:12px; align-items:center; margin-bottom:12px;">
           <button id="runExpBtn" class="btn">Run Experiment</button>
           <button id="simulationBtn" class="btn secondary">🎬 Start Simulation</button>
+          <button id="QKMSBtn" class="btn secondary">🔐 QKMS</button>
         </div>
 
         <!-- Message Input Section -->
@@ -1559,6 +1559,14 @@ async function runExperiment(expType) {
   updateMessageInputBlock(expType, true);
 }
 // Replace your experiment run logic to call runExperiment(expType) as needed
+ // QKMS Frontend button handler 
+ const qkmsBtn = document.getElementById('QKMSBtn');
+if (qkmsBtn) {
+  qkmsBtn.addEventListener('click', () => {
+    console.log('[DEBUG] QKMS button clicked');
+    window.location.href = '/qkms';
+  });
+}
 </script>
 </body>
 </html>
